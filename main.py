@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame
+    QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider
 )
 from PyQt6.QtGui import QIcon
 from PyQt6 import QtWidgets
@@ -98,6 +98,21 @@ class SignalMixerApp(QWidget):
         components_list_V.addWidget(self.components_list)
         lists_layout.addLayout(components_list_V)
 
+        self.sampling_slider = QSlider(Qt.Orientation.Horizontal)
+        self.sampling_slider.setRange(1, 4) 
+        self.sampling_slider.setValue(1)    
+        self.sampling_slider.setTickInterval(1)
+        self.sampling_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+
+        # Connect the slider to a callback function
+        self.sampling_slider.valueChanged.connect(self.update_sampling_markers)
+
+        self.reconstruct_button = QPushButton("Reconstruct Signal")
+        self.reconstruct_button.clicked.connect(self.reconstruct_signal)
+        layout.addWidget(self.reconstruct_button)
+
+        layout.addWidget(self.sampling_slider)
+
         layout.addLayout(lists_layout)  
         
         self.plot_widget = pg.PlotWidget()
@@ -107,54 +122,125 @@ class SignalMixerApp(QWidget):
 
         self.setLayout(layout)
 
-    def mix_signals(self):
+    def reconstruct_signal(self):
+        # Get the factor from the slider to determine the sampling frequency
+        factor = self.sampling_slider.value()
         
-        duration = 1
-        mixed_signal = np.zeros(int(self.fs * duration))
-        components = []  
+        # Calculate the sampling interval based on f_max and factor
+        sampling_interval = 1 / (factor * self.f_max) 
+        sampling_times = np.arange(0, 2, sampling_interval)
+        sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
         
-        for frequency, amplitude, phase in self.signals:
-            wave = self.generate_wave(frequency, amplitude, phase, duration)
-            mixed_signal += wave
-            components.append(f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad")  
+        # Perform sinc interpolation for reconstruction
+        reconstructed_signal = self.sinc_interp(sampling_amplitudes, sampling_times, self.current_signal_t)
         
-        mixed_signal_description = f"Mixed Signal with {len(self.signals)} components"
-        self.result_signals[mixed_signal_description] = mixed_signal  
-        self.mixed_signal_components[mixed_signal_description] = components  
+        # Plot both original and reconstructed signals for comparison
+        self.plot_reconstructed_signal(reconstructed_signal)
 
-        list_item_widget = SignalListItemWidget(mixed_signal_description)
-        list_item_widget.delete_signal.connect(lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
+    def plot_reconstructed_signal(self, reconstructed_signal):
+        self.plot_widget.clear()
         
-        list_item = QListWidgetItem(self.result_list)
-        list_item.setSizeHint(list_item_widget.sizeHint())
-        self.result_list.setItemWidget(list_item, list_item_widget)
+        # Plot the original signal in blue
+        self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b', name="Original Signal")
+        
+        # Plot the reconstructed signal in red
+        self.plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r', name="Reconstructed Signal")
 
-        self.plot_waveform(mixed_signal)
+        # Set plot title and labels
+        self.plot_widget.setTitle("Original vs. Reconstructed Signal")
+        self.plot_widget.setLabel("left", "Amplitude")
+        self.plot_widget.setLabel("bottom", "Time [s]")
+
+    def sinc_interp(self,x, s, t):
+        """Sinc interpolation of sampled points.
+        Parameters:
+        x : np.ndarray : sampled signal values
+        s : np.ndarray : sampled time points
+        t : np.ndarray : desired time points for reconstruction
+        """
+        T = s[1] - s[0]  # Sampling interval
+        sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
+        return np.dot(x, np.sinc(sinc_matrix / T))
+
+    def plot_waveform_with_markers(self, signal, description=None):
+        self.plot_widget.clear()
+        duration = 1  # seconds
+        t = np.linspace(0, duration, len(signal))
+
+        # Plot the waveform without sampling markers
+        self.plot_widget.plot(t, signal, pen='b')
         
-        self.signals.clear()
-        self.signal_list.clear()
+        # FFT to find dominant (maximum) frequency
+        fft_result = np.fft.fft(signal)
+        freqs = np.fft.fftfreq(len(signal), 1 / self.fs)
+        magnitude = np.abs(fft_result)
+
+        # Get max frequency
+        max_freq_idx = np.argmax(magnitude)
+        self.f_max = abs(freqs[max_freq_idx])  # Save f_max as an attribute for later use
+        
+        # Set plot title and labels
+        self.plot_widget.setTitle("Signal Waveform with Adjustable Sampling Markers")
+        self.plot_widget.setLabel("left", "Amplitude")
+        self.plot_widget.setLabel("bottom", "Time [s]")
+        
+        # Save signal details for further updates
+        self.current_displayed_signal = description
+        self.current_signal_t = t
+        self.current_signal_data = signal
+
+        # Initial marker plot at the default factor (1 * f_max)
+        self.plot_sampling_markers(factor=1)
+
+    def plot_sampling_markers(self, factor):
+    # Clear any existing markers without clearing the entire plot
+        self.plot_widget.clearPlots()
+
+        # Plot the main waveform again without clearing everything
+        self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b')
+        
+        # Calculate the sampling interval based on f_max and factor
+        sampling_interval = 1 / (factor * self.f_max)
+        sampling_times = np.arange(0, 1, sampling_interval)  # duration = 3 seconds
+        sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
+
+        # Plot sampling markers only
+        for time, amp in zip(sampling_times, sampling_amplitudes):
+            self.plot_widget.plot([time], [amp], pen=None, symbol='o', symbolSize=6, symbolBrush='r')
+
+    def update_sampling_markers(self):
+        factor = self.sampling_slider.value()  # Get the current value of the slider (1 to 4)
+        self.plot_sampling_markers(factor)
 
     def display_selected_signal(self):
         selected_items = self.result_list.selectedItems()
-        if selected_items:  
-            item = selected_items[0]  
+        if selected_items:
+            item = selected_items[0]
             item_widget = self.result_list.itemWidget(item)
             if item_widget:
-                
-                mixed_signal_description = item_widget.description  
+                # Get the description of the selected signal
+                mixed_signal_description = item_widget.description
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
                 if mixed_signal is not None:
-                    self.plot_waveform(mixed_signal, mixed_signal_description)
-                    
-                    self.components_list.clear()  
-                    components = self.mixed_signal_components.get(mixed_signal_description, [])
-                    print("Components Retrieved for Selected Signal:", components)  
-                    if components:
-                        self.components_list.addItems(components)  
-                    else:
-                        self.components_list.addItem("No components found")  
+                    # Plot waveform without markers initially
+                    self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
 
-                print("Selected Signal:", mixed_signal_description)  
+                    # Get the sampling factor from the slider (1 to 4)
+                    factor = self.sampling_slider.value()
+                    
+                    # Plot sampling markers with the current factor
+                    self.plot_sampling_markers(factor)
+
+                    # Update the component list for the selected signal
+                    self.components_list.clear()
+                    components = self.mixed_signal_components.get(mixed_signal_description, [])
+                    if components:
+                        self.components_list.addItems(components)
+                    else:
+                        self.components_list.addItem("No components found")
+                        
+            print("Selected Signal:", mixed_signal_description)
+            print("Components:", components)
 
     def mix_signals(self):
     
@@ -237,6 +323,12 @@ class SignalMixerApp(QWidget):
                 self.plot_widget.clear()
                 self.current_displayed_signal = None
 
+        components = self.mixed_signal_components.get(description, [])
+        if components:
+            self.components_list.clear()
+        else:
+            self.components_list.addItem("No components found")
+
     def upload_signal(self):
         file_dialog = QFileDialog()
         file_path, _ = file_dialog.getOpenFileName(self, "Open Signal File", "", "Text Files (*.txt *.csv)")
@@ -247,9 +339,9 @@ class SignalMixerApp(QWidget):
                 signal_data = np.loadtxt(file_path, delimiter=',')
                 
                 if signal_data.shape[1] > 1:
-                    signal = signal_data[:, 1]  
+                    signal = signal_data[:1000, 1]  
                 else:
-                    signal = signal_data[:, 0]  
+                    signal = signal_data[:1000, 0]  
                 
                 signal_description = f"Uploaded Signal ({file_path.split('/')[-1]})"
                 list_item_widget = SignalListItemWidget(signal_description)
