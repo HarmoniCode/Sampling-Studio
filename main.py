@@ -8,6 +8,7 @@ from PyQt6.QtGui import QIcon
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
+from pyqtgraph import ScatterPlotItem
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)  
@@ -193,20 +194,18 @@ class SignalMixerApp(QWidget):
         self.plot_sampling_markers(factor=1)
 
     def plot_sampling_markers(self, factor):
-    # Clear any existing markers without clearing the entire plot
-        self.plot_widget.clearPlots()
-
-        # Plot the main waveform again without clearing everything
-        self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b')
-        
-        # Calculate the sampling interval based on f_max and factor
         sampling_interval = 1 / (factor * self.f_max)
-        sampling_times = np.arange(0, 1, sampling_interval)  # duration = 3 seconds
+        sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
-
-        # Plot sampling markers only
-        for time, amp in zip(sampling_times, sampling_amplitudes):
-            self.plot_widget.plot([time], [amp], pen=None, symbol='o', symbolSize=6, symbolBrush='r')
+        
+        # Create ScatterPlotItem only once and update data later
+        if not hasattr(self, 'marker_item'):
+            self.marker_item = ScatterPlotItem(symbol='o', pen=None, brush='r', size=6)
+            self.plot_widget.addItem(self.marker_item)
+        
+        # Update marker data instead of re-plotting
+        spots = [{'pos': (time, amp)} for time, amp in zip(sampling_times, sampling_amplitudes)]
+        self.marker_item.setData(spots)
 
     def update_sampling_markers(self):
         factor = self.sampling_slider.value()  # Get the current value of the slider (1 to 4)
@@ -339,9 +338,9 @@ class SignalMixerApp(QWidget):
                 signal_data = np.loadtxt(file_path, delimiter=',')
                 
                 if signal_data.shape[1] > 1:
-                    signal = signal_data[:1000, 1]  
+                    signal = signal_data[:, 1]  
                 else:
-                    signal = signal_data[:1000, 0]  
+                    signal = signal_data[:, 0]  
                 
                 signal_description = f"Uploaded Signal ({file_path.split('/')[-1]})"
                 list_item_widget = SignalListItemWidget(signal_description)
