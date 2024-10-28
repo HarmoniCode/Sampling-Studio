@@ -132,7 +132,7 @@ class SignalMixerApp(QWidget):
         
         self.snr_slider = QSlider(Qt.Orientation.Horizontal)
         self.snr_slider.setRange(0, 100) 
-        self.snr_slider.setValue(0)    
+        self.snr_slider.setValue(100)    
         self.snr_slider.setTickInterval(1)
         self.snr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         layout.addWidget(self.snr_slider)
