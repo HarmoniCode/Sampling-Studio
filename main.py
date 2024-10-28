@@ -9,6 +9,8 @@ from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
 from scipy.interpolate import interp1d
+from pyqtgraph import ScatterPlotItem
+
 
 
 class SignalListItemWidget(QFrame):
@@ -106,7 +108,6 @@ class SignalMixerApp(QWidget):
         self.sampling_slider.setTickInterval(1)
         self.sampling_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
 
-        # Connect the slider to a callback function
         self.sampling_slider.valueChanged.connect(self.update_sampling_markers)
 
         self.reconstruct_button = QPushButton("Reconstruct Signal")
@@ -173,13 +174,10 @@ class SignalMixerApp(QWidget):
     def plot_reconstructed_signal(self, reconstructed_signal):
         self.plot_widget.clear()
         
-        # Plot the original signal in blue
         self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b', name="Original Signal")
         
-        # Plot the reconstructed signal in red
         self.plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r', name="Reconstructed Signal")
 
-        # Set plot title and labels
         self.plot_widget.setTitle("Original vs. Reconstructed Signal")
         self.plot_widget.setLabel("left", "Amplitude")
         self.plot_widget.setLabel("bottom", "Time [s]")
@@ -234,23 +232,34 @@ class SignalMixerApp(QWidget):
         self.plot_sampling_markers(factor=1)
 
     def plot_sampling_markers(self, factor):
-    # Clear any existing markers without clearing the entire plot
-        self.plot_widget.clear()
-
-        # Plot the main waveform again without clearing everything
-        self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b')
-        
-        # Calculate the sampling interval based on f_max and factor
+        # Calculate sampling interval based on f_max and factor
         sampling_interval = 1 / (factor * self.f_max)
-        sampling_times = np.arange(0, 1, sampling_interval)  # duration = 3 seconds
+        sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
-
-        # Plot sampling markers only
-        for time, amp in zip(sampling_times, sampling_amplitudes):
-            self.plot_widget.plot([time], [amp], pen=None, symbol='o', symbolSize=6, symbolBrush='r')
+        
+        # If no marker list exists for this signal, initialize it
+        if not hasattr(self, 'marker_items'):
+            self.marker_items = {}
+        
+        # Generate a unique key for the current signal
+        signal_key = self.current_displayed_signal
+        
+        # Check if we already have markers for this signal
+        if signal_key not in self.marker_items:
+            # Create ScatterPlotItem for the current signal markers and add to dictionary
+            marker_item = ScatterPlotItem(symbol='o', pen=None, brush='r', size=6)
+            self.marker_items[signal_key] = marker_item
+            self.plot_widget.addItem(marker_item)
+        else:
+            # Reuse existing ScatterPlotItem for the signal
+            marker_item = self.marker_items[signal_key]
+        
+        # Set new marker positions
+        spots = [{'pos': (time, amp)} for time, amp in zip(sampling_times, sampling_amplitudes)]
+        marker_item.setData(spots)
 
     def update_sampling_markers(self):
-        factor = self.sampling_slider.value()  # Get the current value of the slider (1 to 4)
+        factor = self.sampling_slider.value()  
         self.plot_sampling_markers(factor)
 
     def display_selected_signal(self):
@@ -265,8 +274,8 @@ class SignalMixerApp(QWidget):
                 if mixed_signal is not None:
                     # Plot waveform without markers initially
                     self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
-
-                    # Get the sampling factor from the slider (1 to 4)
+                    
+                    # Set factor based on current slider position
                     factor = self.sampling_slider.value()
                     
                     # Plot sampling markers with the current factor
@@ -280,8 +289,8 @@ class SignalMixerApp(QWidget):
                     else:
                         self.components_list.addItem("No components found")
                         
-            print("Selected Signal:", mixed_signal_description)
-            print("Components:", components)
+                print("Selected Signal:", mixed_signal_description)
+                print("Components:", components)
 
     def mix_signals(self):
         
@@ -308,10 +317,10 @@ class SignalMixerApp(QWidget):
         self.signals.clear()
         self.signal_list.clear()
 
-        print("Mixed Signal Description:", mixed_signal_description)
-        print("Mixed Signal Components:", components)
-        print("Current Result Signals:", self.result_signals)
-        print("Current Mixed Signal Components:", self.mixed_signal_components)
+        # print("Mixed Signal Description:", mixed_signal_description)
+        # print("Mixed Signal Components:", components)
+        # print("Current Result Signals:", self.result_signals)
+        # print("Current Mixed Signal Components:", self.mixed_signal_components)
     
     def generate_wave(self, frequency, amplitude, phase, duration):
         t = np.linspace(0, duration, int(self.fs * duration), endpoint=False)
