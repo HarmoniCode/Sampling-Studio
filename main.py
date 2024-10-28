@@ -235,7 +235,7 @@ class SignalMixerApp(QWidget):
 
     def plot_sampling_markers(self, factor):
     # Clear any existing markers without clearing the entire plot
-        self.plot_widget.clearPlots()
+        self.plot_widget.clear()
 
         # Plot the main waveform again without clearing everything
         self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b')
