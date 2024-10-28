@@ -45,7 +45,7 @@ class SignalMixerApp(QWidget):
         self.result_signals = {}  
         self.current_displayed_signal = None
         self.mixed_signal_components = {} 
-
+        self.noisy_signals = {}
         self.fs = 44100  
         
         self.initUI()
@@ -120,7 +120,26 @@ class SignalMixerApp(QWidget):
 
         self.result_list.itemSelectionChanged.connect(self.display_selected_signal)
 
+################################################
+        self.snr_value = QLabel("SNR Level : 0")
+        layout.addWidget(self.snr_value)
+        
+        self.snr_slider = QSlider(Qt.Orientation.Horizontal)
+        self.snr_slider.setRange(0, 100) 
+        self.snr_slider.setValue(0)    
+        self.snr_slider.setTickInterval(1)
+        self.snr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        layout.addWidget(self.snr_slider)
+         
+        self.snr_slider.valueChanged.connect(self.update_snr_value)    
+        self.snr_slider.valueChanged.connect(self.add_noise)    
+
+        
         self.setLayout(layout)
+
+        
+    #############################################
+
 
     def reconstruct_signal(self):
         # Get the factor from the slider to determine the sampling frequency
@@ -243,7 +262,7 @@ class SignalMixerApp(QWidget):
             print("Components:", components)
 
     def mix_signals(self):
-    
+        
         duration = 1
         mixed_signal = np.zeros(int(self.fs * duration))
         components = []  
@@ -259,11 +278,9 @@ class SignalMixerApp(QWidget):
         
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
-        
         list_item = QListWidgetItem(self.result_list)
         list_item.setSizeHint(list_item_widget.sizeHint())
         self.result_list.setItemWidget(list_item, list_item_widget)
-        
         self.plot_waveform(mixed_signal, mixed_signal_description)
         
         self.signals.clear()
@@ -273,7 +290,7 @@ class SignalMixerApp(QWidget):
         print("Mixed Signal Components:", components)
         print("Current Result Signals:", self.result_signals)
         print("Current Mixed Signal Components:", self.mixed_signal_components)
-
+    
     def generate_wave(self, frequency, amplitude, phase, duration):
         t = np.linspace(0, duration, int(self.fs * duration), endpoint=False)
         wave = amplitude * np.sin(2 * np.pi * frequency * t + phase)
@@ -368,7 +385,35 @@ class SignalMixerApp(QWidget):
         
         self.current_displayed_signal = description
 
+########################################################
+    def add_noise(self):
+        snr_value = self.snr_slider.value()
+        selected_items = self.result_list.selectedItems()
+        if selected_items:
+            item = selected_items[0]
+            item_widget = self.result_list.itemWidget(item)
+            if item_widget:
+                mixed_signal_description = item_widget.description
+                mixed_signal = self.result_signals.get(mixed_signal_description, None)
+        
 
+                signal = mixed_signal
+                signal_description = mixed_signal_description
+                if snr_value:
+                    signal_power_dB = 10*np.log10(np.mean(np.square(signal))) 
+                    noise_power = signal_power_dB / (10**(snr_value/10))
+                    noise = noise_power * np.random.normal(size=len(signal))
+                    noisy_signal = signal + noise
+                else:
+                    noisy_signal = signal
+                self.noisy_signals[signal_description] = noisy_signal
+                self.plot_waveform_with_markers(noisy_signal, signal_description)
+               
+
+    def update_snr_value(self,value):
+        self.snr_value.setText("SNR Level : " + str(value))
+
+#####################################################################
 app = QApplication(sys.argv)
 window = SignalMixerApp()
 window.show()
