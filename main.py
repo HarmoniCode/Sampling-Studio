@@ -8,6 +8,8 @@ from PyQt6.QtGui import QIcon
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
+from scipy.interpolate import interp1d
+
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)  
@@ -109,7 +111,11 @@ class SignalMixerApp(QWidget):
 
         self.reconstruct_button = QPushButton("Reconstruct Signal")
         self.reconstruct_button.clicked.connect(self.reconstruct_signal)
+        self.comboBox = QtWidgets.QComboBox()
+        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic", "Sinc"])  # Add options
+        self.comboBox.currentIndexChanged.connect(self.selected_reconstruction)  # Connect event
         layout.addWidget(self.reconstruct_button)
+        layout.addWidget (self.comboBox)
 
         layout.addWidget(self.sampling_slider)
 
@@ -122,6 +128,18 @@ class SignalMixerApp(QWidget):
 
         self.setLayout(layout)
 
+    def selected_reconstruction(self,x,s,t):
+        method = self.comboBox.currentText()
+        if method == "Whittaker-Shannon":
+            reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
+        elif method == "Linear":
+            reconstructed_signal = self.linear_interpolation(x, s, t)
+        elif method == "Cubic":
+            reconstructed_signal = self.cubic_interpolation(x, s, t)
+        elif method == "Sinc":
+            reconstructed_signal = self.sinc_interpolation(x, s, t)
+        return reconstructed_signal
+
     def reconstruct_signal(self):
         # Get the factor from the slider to determine the sampling frequency
         factor = self.sampling_slider.value()
@@ -132,7 +150,7 @@ class SignalMixerApp(QWidget):
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
         
         # Perform sinc interpolation for reconstruction
-        reconstructed_signal = self.sinc_interp(sampling_amplitudes, sampling_times, self.current_signal_t)
+        reconstructed_signal = self.selected_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
         
         # Plot both original and reconstructed signals for comparison
         self.plot_reconstructed_signal(reconstructed_signal)
@@ -151,16 +169,24 @@ class SignalMixerApp(QWidget):
         self.plot_widget.setLabel("left", "Amplitude")
         self.plot_widget.setLabel("bottom", "Time [s]")
 
-    def sinc_interp(self,x, s, t):
-        """Sinc interpolation of sampled points.
-        Parameters:
-        x : np.ndarray : sampled signal values
-        s : np.ndarray : sampled time points
-        t : np.ndarray : desired time points for reconstruction
-        """
-        T = s[1] - s[0]  # Sampling interval
+    def whittaker_shannon_reconstruction(self, x, s, t):
+        T = s[1] - s[0]
+        sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
+        return np.sum(x[:, np.newaxis] * np.sinc(sinc_matrix / T), axis=0)
+
+    def linear_interpolation(self, x, s, t):
+        linear_interpolator = interp1d(s, x, kind='linear')
+        return linear_interpolator(t)
+
+    def cubic_interpolation(self, x, s, t):
+        cubic_interpolator = interp1d(s, x, kind='cubic')
+        return cubic_interpolator(t)
+
+    def sinc_interpolation(self, x, s, t):
+        T = s[1] - s[0]
         sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
         return np.dot(x, np.sinc(sinc_matrix / T))
+
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.plot_widget.clear()
