@@ -11,7 +11,7 @@ import pyqtgraph as pg
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)  
-    
+
     def __init__(self, description, parent=None):
         super().__init__(parent)
         self.description = description
@@ -39,7 +39,7 @@ class SignalMixerApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Signal Mixer")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1200, 600)
         
         self.signals = []  
         self.result_signals = {}  
@@ -52,6 +52,7 @@ class SignalMixerApp(QWidget):
 
     def initUI(self):
         layout = QVBoxLayout()
+        graphs_horizontal_layout = QHBoxLayout()
         
         input_layout = QHBoxLayout()
         self.freq_input = QLineEdit()
@@ -116,11 +117,36 @@ class SignalMixerApp(QWidget):
         layout.addLayout(lists_layout)  
         
         self.plot_widget = pg.PlotWidget()
-        layout.addWidget(self.plot_widget)
+        self.plot_widget.setTitle("Original Signal")
+        self.plot_widget.setLabel("bottom", "Time", units="s")
+        self.plot_widget.setLabel("left", "Amplitude")
+        graphs_horizontal_layout.addWidget(self.plot_widget)
+
+        ######## Frequency-Domain Plot Widget
+        self.freq_plot_widget = pg.PlotWidget(self)
+        self.freq_plot_widget.setTitle("Frequency Domain")
+        self.freq_plot_widget.setLabel("bottom", "Frequency", units="Hz")
+        self.freq_plot_widget.setLabel("left", "Magnitude")
+        graphs_horizontal_layout.addWidget(self.freq_plot_widget)
+
+        # ######## Frequency-Domain Plot Line
+        # self.freq_data, self.freq_magnitude = self.compute_fft(self.plot_data) <<-------pass it the y values 
+        # self.freq_plot_line = self.freq_plot_widget.plot(self.freq_data, self.freq_magnitude, pen="r")
 
         self.result_list.itemSelectionChanged.connect(self.display_selected_signal)
 
+        layout.addLayout(graphs_horizontal_layout)
         self.setLayout(layout)
+
+    ########### Method that computes the fft (fast fourier transform)
+    # def compute_fft(self, data):
+    #     # Perform FFT on the data
+    #     N = len(data)
+    #     fft_values = np.fft.fft(data)
+    #     fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N # Normalize magnitude
+    #     freq_data = np.fft.fftfreq(N, d=(self.x_data[1] - self.x_data[0]))[:N // 2] <<------ self.x_data[] is the array of -> 
+    # x values (time)
+    #     return freq_data, fft_magnitude
 
     def reconstruct_signal(self):
         # Get the factor from the slider to determine the sampling frequency
