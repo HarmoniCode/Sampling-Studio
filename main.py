@@ -8,7 +8,10 @@ from PyQt6.QtGui import QIcon
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
+from scipy.interpolate import interp1d
 from pyqtgraph import ScatterPlotItem
+
+
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)  
@@ -46,7 +49,7 @@ class SignalMixerApp(QWidget):
         self.result_signals = {}  
         self.current_displayed_signal = None
         self.mixed_signal_components = {} 
-
+        self.noisy_signals = {}
         self.fs = 44100  
         
         self.initUI()
@@ -105,12 +108,15 @@ class SignalMixerApp(QWidget):
         self.sampling_slider.setTickInterval(1)
         self.sampling_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
 
-        # Connect the slider to a callback function
         self.sampling_slider.valueChanged.connect(self.update_sampling_markers)
 
         self.reconstruct_button = QPushButton("Reconstruct Signal")
         self.reconstruct_button.clicked.connect(self.reconstruct_signal)
+        self.comboBox = QtWidgets.QComboBox()
+        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic", "Sinc"])  # Add options
+        self.comboBox.currentIndexChanged.connect(self.selected_reconstruction)  # Connect event
         layout.addWidget(self.reconstruct_button)
+        layout.addWidget (self.comboBox)
 
         layout.addWidget(self.sampling_slider)
 
@@ -121,7 +127,34 @@ class SignalMixerApp(QWidget):
 
         self.result_list.itemSelectionChanged.connect(self.display_selected_signal)
 
+################################################
+        self.snr_value = QLabel("SNR Level : 0")
+        layout.addWidget(self.snr_value)
+        
+        self.snr_slider = QSlider(Qt.Orientation.Horizontal)
+        self.snr_slider.setRange(0, 100) 
+        self.snr_slider.setValue(100)    
+        self.snr_slider.setTickInterval(1)
+        self.snr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
+        layout.addWidget(self.snr_slider)
+         
+        self.snr_slider.valueChanged.connect(self.update_snr_value)    
+        self.snr_slider.valueChanged.connect(self.add_noise)    
+
+        
         self.setLayout(layout)
+
+    def selected_reconstruction(self,x,s,t):
+        method = self.comboBox.currentText()
+        if method == "Whittaker-Shannon":
+            reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
+        elif method == "Linear":
+            reconstructed_signal = self.linear_interpolation(x, s, t)
+        elif method == "Cubic":
+            reconstructed_signal = self.cubic_interpolation(x, s, t)
+        elif method == "Sinc":
+            reconstructed_signal = self.sinc_interpolation(x, s, t)
+        return reconstructed_signal
 
     def reconstruct_signal(self):
         # Get the factor from the slider to determine the sampling frequency
@@ -133,7 +166,7 @@ class SignalMixerApp(QWidget):
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
         
         # Perform sinc interpolation for reconstruction
-        reconstructed_signal = self.sinc_interp(sampling_amplitudes, sampling_times, self.current_signal_t)
+        reconstructed_signal = self.selected_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
         
         # Plot both original and reconstructed signals for comparison
         self.plot_reconstructed_signal(reconstructed_signal)
@@ -141,27 +174,32 @@ class SignalMixerApp(QWidget):
     def plot_reconstructed_signal(self, reconstructed_signal):
         self.plot_widget.clear()
         
-        # Plot the original signal in blue
         self.plot_widget.plot(self.current_signal_t, self.current_signal_data, pen='b', name="Original Signal")
         
-        # Plot the reconstructed signal in red
         self.plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r', name="Reconstructed Signal")
 
-        # Set plot title and labels
         self.plot_widget.setTitle("Original vs. Reconstructed Signal")
         self.plot_widget.setLabel("left", "Amplitude")
         self.plot_widget.setLabel("bottom", "Time [s]")
 
-    def sinc_interp(self,x, s, t):
-        """Sinc interpolation of sampled points.
-        Parameters:
-        x : np.ndarray : sampled signal values
-        s : np.ndarray : sampled time points
-        t : np.ndarray : desired time points for reconstruction
-        """
-        T = s[1] - s[0]  # Sampling interval
+    def whittaker_shannon_reconstruction(self, x, s, t):
+        T = s[1] - s[0]
+        sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
+        return np.sum(x[:, np.newaxis] * np.sinc(sinc_matrix / T), axis=0)
+
+    def linear_interpolation(self, x, s, t):
+        linear_interpolator = interp1d(s, x, kind='linear')
+        return linear_interpolator(t)
+
+    def cubic_interpolation(self, x, s, t):
+        cubic_interpolator = interp1d(s, x, kind='cubic')
+        return cubic_interpolator(t)
+
+    def sinc_interpolation(self, x, s, t):
+        T = s[1] - s[0]
         sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
         return np.dot(x, np.sinc(sinc_matrix / T))
+
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.plot_widget.clear()
@@ -194,21 +232,34 @@ class SignalMixerApp(QWidget):
         self.plot_sampling_markers(factor=1)
 
     def plot_sampling_markers(self, factor):
+        # Calculate sampling interval based on f_max and factor
         sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
         
-        # Create ScatterPlotItem only once and update data later
-        if not hasattr(self, 'marker_item'):
-            self.marker_item = ScatterPlotItem(symbol='o', pen=None, brush='r', size=6)
-            self.plot_widget.addItem(self.marker_item)
+        # If no marker list exists for this signal, initialize it
+        if not hasattr(self, 'marker_items'):
+            self.marker_items = {}
         
-        # Update marker data instead of re-plotting
+        # Generate a unique key for the current signal
+        signal_key = self.current_displayed_signal
+        
+        # Check if we already have markers for this signal
+        if signal_key not in self.marker_items:
+            # Create ScatterPlotItem for the current signal markers and add to dictionary
+            marker_item = ScatterPlotItem(symbol='o', pen=None, brush='r', size=6)
+            self.marker_items[signal_key] = marker_item
+            self.plot_widget.addItem(marker_item)
+        else:
+            # Reuse existing ScatterPlotItem for the signal
+            marker_item = self.marker_items[signal_key]
+        
+        # Set new marker positions
         spots = [{'pos': (time, amp)} for time, amp in zip(sampling_times, sampling_amplitudes)]
-        self.marker_item.setData(spots)
+        marker_item.setData(spots)
 
     def update_sampling_markers(self):
-        factor = self.sampling_slider.value()  # Get the current value of the slider (1 to 4)
+        factor = self.sampling_slider.value()  
         self.plot_sampling_markers(factor)
 
     def display_selected_signal(self):
@@ -223,8 +274,8 @@ class SignalMixerApp(QWidget):
                 if mixed_signal is not None:
                     # Plot waveform without markers initially
                     self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
-
-                    # Get the sampling factor from the slider (1 to 4)
+                    
+                    # Set factor based on current slider position
                     factor = self.sampling_slider.value()
                     
                     # Plot sampling markers with the current factor
@@ -238,11 +289,11 @@ class SignalMixerApp(QWidget):
                     else:
                         self.components_list.addItem("No components found")
                         
-            print("Selected Signal:", mixed_signal_description)
-            print("Components:", components)
+                print("Selected Signal:", mixed_signal_description)
+                print("Components:", components)
 
     def mix_signals(self):
-    
+        
         duration = 1
         mixed_signal = np.zeros(int(self.fs * duration))
         components = []  
@@ -258,21 +309,19 @@ class SignalMixerApp(QWidget):
         
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
-        
         list_item = QListWidgetItem(self.result_list)
         list_item.setSizeHint(list_item_widget.sizeHint())
         self.result_list.setItemWidget(list_item, list_item_widget)
-        
         self.plot_waveform(mixed_signal, mixed_signal_description)
         
         self.signals.clear()
         self.signal_list.clear()
 
-        print("Mixed Signal Description:", mixed_signal_description)
-        print("Mixed Signal Components:", components)
-        print("Current Result Signals:", self.result_signals)
-        print("Current Mixed Signal Components:", self.mixed_signal_components)
-
+        # print("Mixed Signal Description:", mixed_signal_description)
+        # print("Mixed Signal Components:", components)
+        # print("Current Result Signals:", self.result_signals)
+        # print("Current Mixed Signal Components:", self.mixed_signal_components)
+    
     def generate_wave(self, frequency, amplitude, phase, duration):
         t = np.linspace(0, duration, int(self.fs * duration), endpoint=False)
         wave = amplitude * np.sin(2 * np.pi * frequency * t + phase)
@@ -367,7 +416,35 @@ class SignalMixerApp(QWidget):
         
         self.current_displayed_signal = description
 
+########################################################
+    def add_noise(self):
+        snr_value = self.snr_slider.value()
+        selected_items = self.result_list.selectedItems()
+        if selected_items:
+            item = selected_items[0]
+            item_widget = self.result_list.itemWidget(item)
+            if item_widget:
+                mixed_signal_description = item_widget.description
+                mixed_signal = self.result_signals.get(mixed_signal_description, None)
+        
 
+                signal = mixed_signal
+                signal_description = mixed_signal_description
+                if snr_value:
+                    signal_power_dB = 10*np.log10(np.mean(np.square(signal))) 
+                    noise_power = signal_power_dB / (10**(snr_value/10))
+                    noise = noise_power * np.random.normal(size=len(signal))
+                    noisy_signal = signal + noise
+                else:
+                    noisy_signal = signal
+                self.noisy_signals[signal_description] = noisy_signal
+                self.plot_waveform_with_markers(noisy_signal, signal_description)
+               
+
+    def update_snr_value(self,value):
+        self.snr_value.setText("SNR Level : " + str(value))
+
+#####################################################################
 app = QApplication(sys.argv)
 window = SignalMixerApp()
 window.show()
