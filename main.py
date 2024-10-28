@@ -11,7 +11,7 @@ import pyqtgraph as pg
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)  
-
+    
     def __init__(self, description, parent=None):
         super().__init__(parent)
         self.description = description
