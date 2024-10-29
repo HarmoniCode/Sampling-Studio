@@ -29,8 +29,9 @@ class SignalListItemWidget(QFrame):
         self.label.setObjectName("signal_label")
         self.delete_button = QPushButton()
         self.delete_button.setObjectName("delete_button")
-        self.delete_button.setFixedWidth(30)
-        self.delete_button.setIcon(QIcon.fromTheme("list-remove"))
+        self.delete_button.setFixedWidth(20)
+        self.delete_button.setFixedHeight(20)
+        self.delete_button.setIcon(QIcon("./Icons/minus.png"))
         self.delete_button.clicked.connect(self.handle_delete)
 
         layout.addWidget(self.label)
