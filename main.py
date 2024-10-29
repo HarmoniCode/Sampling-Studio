@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider
 )
 
+
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)
 
@@ -22,9 +23,12 @@ class SignalListItemWidget(QFrame):
         self.initUI()
 
     def initUI(self):
+        
         layout = QHBoxLayout(self)
         self.label = QLabel(self.description)
+        self.label.setObjectName("signal_label")
         self.delete_button = QPushButton()
+        self.delete_button.setObjectName("delete_button")
         self.delete_button.setFixedWidth(30)
         self.delete_button.setIcon(QIcon.fromTheme("list-remove"))
         self.delete_button.clicked.connect(self.handle_delete)
@@ -54,31 +58,69 @@ class SignalMixerApp(QWidget):
 
     def initUI(self):
         layout = QHBoxLayout()
+        with open("index.qss", "r") as f:
+             app.setStyleSheet(f.read())
 
+        mixer_frame = QFrame()
+        mixer_frame.setFixedWidth(600)
+        layout.addWidget(mixer_frame)
         mixer_layout=QVBoxLayout()
+        mixer_layout.setSpacing(15)
+        mixer_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        mixer_frame.setLayout(mixer_layout)
+        
         input_box = QHBoxLayout()
+        input_box_frame = QFrame()
+        input_box_frame.setObjectName("input_box_frame")
+        input_box_frame.setMaximumHeight(270)
 
+        # input_box_frame.setStyleSheet('''background-color:white;''')
+        input_box_frame.setLayout(input_box)
+
+        input_frame = QFrame()
         input_layout = QVBoxLayout()
+        input_frame.setLayout(input_layout)
+        input_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        input_layout.setSpacing(15)
         self.freq_input = QLineEdit()
+        self.freq_input.setMinimumHeight(30)
+
+
         self.freq_input.setPlaceholderText("Frequency (Hz)")
         self.amp_input = QLineEdit()
+        self.amp_input.setMinimumHeight(30)
         self.amp_input.setPlaceholderText("Amplitude")
         self.phase_input = QLineEdit()
+        self.phase_input.setMinimumHeight(30)
         self.phase_input.setPlaceholderText("Phase (radians)")
-        input_layout.addWidget(QLabel("Frequency:"))
+        
+        freq_label = QLabel("Frequency:")
+        freq_label.setObjectName("input_label")
+        input_layout.addWidget(freq_label)
         input_layout.addWidget(self.freq_input)
-        input_layout.addWidget(QLabel("Amplitude:"))
+        
+        amp_label = QLabel("Amplitude:")
+        amp_label.setObjectName("input_label")
+        input_layout.addWidget(amp_label)
         input_layout.addWidget(self.amp_input)
-        input_layout.addWidget(QLabel("Phase:"))
+        
+        phase_label = QLabel("Phase:")
+        phase_label.setObjectName("input_label")
+        input_layout.addWidget(phase_label)
         input_layout.addWidget(self.phase_input)
-        input_box.addLayout(input_layout)
+        
+        input_box.addWidget(input_frame)
 
 
         add_mix_control_layout = QHBoxLayout()
 
         add_button = QPushButton("Add Signal")
+        add_button.setObjectName("add_button")
+        add_button.setMinimumHeight(35)
         add_button.clicked.connect(self.add_signal)
         mix_button = QPushButton("Mix Signals")
+        mix_button.setObjectName("mix_button")
+        mix_button.setMinimumHeight(35)
         mix_button.clicked.connect(self.mix_signals)
         upload_button = QPushButton("Upload Signal")
         upload_button.clicked.connect(self.upload_signal)
@@ -86,34 +128,71 @@ class SignalMixerApp(QWidget):
         add_mix_control_layout.addWidget(mix_button)
 
         mixer_layout.addWidget(upload_button)
-        mixer_layout.addLayout(input_box)
+        mixer_layout.addWidget(input_box_frame)
         mixer_layout.addLayout(add_mix_control_layout)
-        layout.addLayout(mixer_layout)
-
-        lists_layout=QHBoxLayout()
 
         self.signal_list = QListWidget()
+        self.signal_list.setObjectName("signal_list")
+
         signal_list_V=QVBoxLayout()
-        signal_list_V.addWidget(QLabel("Individual Signals:"))
+        signal_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        Individual_label = QLabel("Sins Signals:")
+        Individual_label.setObjectName("bold_label")
+        
+        signal_list_V.addWidget(Individual_label)
         signal_list_V.addWidget(self.signal_list)
+        signal_list_V.addSpacerItem(QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+        
         input_box.addLayout(signal_list_V)
 
         result_components_layout = QHBoxLayout()
+        result_components_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.result_list = QListWidget()
         result_list_V=QVBoxLayout()
-        result_list_V.addWidget(QLabel("Mixed Signal Results:"))
+        result_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
+        mixed_label = QLabel("Signals")
+        result_list_V.addWidget(mixed_label)
         result_list_V.addWidget(self.result_list)
         result_components_layout.addLayout(result_list_V)
 
         self.components_list = QListWidget()
         components_list_V=QVBoxLayout()
-        components_list_V.addWidget(QLabel("Components of Selected Mixed Signal:"))
+        components_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        component_label = QLabel("Components ")
+        components_list_V.addWidget(component_label)
         components_list_V.addWidget(self.components_list)
         result_components_layout.addLayout(components_list_V)
 
         mixer_layout.addLayout(result_components_layout)
 
+
+
+        plot_reconstructed_layout_frame = QFrame()
+        plot_reconstructed_layout = QVBoxLayout()
+        plot_reconstructed_layout.setSpacing(15)
+        plot_reconstructed_layout_frame.setLayout(plot_reconstructed_layout)
+
+        self.plot_markers_button = QPushButton("Sampling Markers")
+        self.plot_markers_button.setObjectName("plot_button")
+        self.plot_markers_button.clicked.connect(self.plot_sampling_markers)
+        plot_reconstructed_layout.addWidget(self.plot_markers_button)
+
+        self.reconstruct_button = QPushButton("Reconstruct Signal")
+        self.reconstruct_button.setObjectName("reconstruct_button")
+        self.reconstruct_button.clicked.connect(self.reconstruct_signal)
+        plot_reconstructed_layout.addWidget(self.reconstruct_button)
+
+        # Create a layout for the sliders
+        slider_layout_frame = QFrame()
+        slider_layout = QVBoxLayout()
+        slider_layout.setSpacing(15)
+        slider_layout_frame.setLayout(slider_layout)
+
+        sampling_layout = QHBoxLayout()
+        sampling_label = QLabel("Sampling Freq : 1")
 
         self.sampling_slider = QSlider(Qt.Orientation.Horizontal)
         self.sampling_slider.setRange(1, 4)
@@ -121,24 +200,10 @@ class SignalMixerApp(QWidget):
         self.sampling_slider.setTickInterval(1)
         self.sampling_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
 
-        plot_reconstructed_layout = QHBoxLayout()
-        mixer_layout.addLayout(plot_reconstructed_layout)
+        sampling_layout.addWidget(sampling_label)
+        sampling_layout.addWidget(self.sampling_slider)
 
-        self.plot_markers_button = QPushButton("Plot Sampling Markers")
-        self.plot_markers_button.clicked.connect(self.plot_sampling_markers)
-        plot_reconstructed_layout.addWidget(self.plot_markers_button)
-
-        self.reconstruct_button = QPushButton("Reconstruct Signal")
-        self.reconstruct_button.clicked.connect(self.reconstruct_signal)
-        self.comboBox = QtWidgets.QComboBox()
-        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic"])  # Add options
-        self.comboBox.currentIndexChanged.connect(self.selected_reconstruction)  # Connect event
-        plot_reconstructed_layout.addWidget(self.reconstruct_button)
-
-
-        mixer_layout.addWidget (self.comboBox)
-        mixer_layout.addWidget(self.sampling_slider)
-
+        slider_layout.addLayout(sampling_layout)
 
         snr_layout = QHBoxLayout()
         self.snr_value = QLabel("SNR Level : 0")
@@ -150,17 +215,21 @@ class SignalMixerApp(QWidget):
         self.snr_slider.setTickInterval(1)
         self.snr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         snr_layout.addWidget(self.snr_slider)
-        mixer_layout.addLayout(snr_layout)
+        slider_layout.addLayout(snr_layout)
 
-        self.snr_slider.valueChanged.connect(self.update_snr_value)
-        self.snr_slider.valueChanged.connect(self.add_noise)
+        # Create a horizontal layout to combine buttons and sliders
+        compine_layout = QHBoxLayout()
+        compine_layout.addWidget(slider_layout_frame)
+        compine_layout.addWidget(plot_reconstructed_layout_frame)
 
+        # Add the combined layout to the main layout
+        mixer_layout.addLayout(compine_layout)
 
         # Add the main plot widget for the original and reconstructed signals
-
-
-
+        grid_layout_frame = QFrame()
+        grid_layout_frame.setObjectName("grid_layout_frame")
         grid_layout = QVBoxLayout()
+        grid_layout_frame.setLayout(grid_layout)
 
         self.plot_widget = PlotWidget()
         grid_layout.addWidget(self.plot_widget)
@@ -176,11 +245,11 @@ class SignalMixerApp(QWidget):
         self.freq_plot_widget = PlotWidget()
         grid_layout.addWidget(self.freq_plot_widget)
 
-        layout.addLayout(grid_layout)
+        layout.addWidget(grid_layout_frame)
 
         self.result_list.itemSelectionChanged.connect(self.display_selected_signal)
 
-
+        mixer_layout.addSpacerItem(QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
 
         self.setLayout(layout)
 

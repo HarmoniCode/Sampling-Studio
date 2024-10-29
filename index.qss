@@ -1,0 +1,94 @@
+QPushButton#delete_button {
+  font-weight: bold;
+  font-size: 15px;
+  border-radius: 5px;
+  padding: 5px 10px;
+}
+
+QPushButton#delete_button:hover {
+  background-color: #ff0000;
+  color: #ffffff;
+}
+
+QPushButton {
+  background-color: #2196f3;
+  color: white;
+  font-weight: bold;
+  font-size: 15px;
+  border-radius: 5px;
+  padding: 10px 10px;
+  height: 25px;
+}
+
+
+QLabel {
+  font-size: 12px;
+  font-weight: bold;
+}
+QLabel#bold_label {
+  font-weight: bold;
+  font-size: 15px;
+}
+
+QListWidget {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 5px;
+  max-height: 200px;
+  min-height: 200px;
+}
+
+QFrame#input_box_frame{
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding:  10px 5px;
+    /* padding-bottom: 25px; */
+}
+
+QComboBox#comboBox {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding:7px;
+}
+QComboBox#comboBox::drop-down {
+  subcontrol-origin: padding;
+  subcontrol-position: top right;
+  width: 25px;
+  border-left-width: 1px;
+  border-left-color: darkgray;
+  border-left-style: solid;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+    background-color: #2196f3;
+}
+QComboBox#comboBox::down-arrow {
+  image: url(./icons/arrow_down.png);
+  /* make image fitting */
+    width: 15px;
+    height: 15px;
+}
+
+QLineEdit {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+/* QPushButton#plot_button, QPushButton#reconstruct_button{
+    background-color: #2196f3;
+    color: white;
+    font-weight: bold;
+    font-size: 15px;
+    border-radius: 5px;
+    padding: 10px 10px;
+} */
+
+QFrame#grid_layout_frame{
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding:  10px 5px;
+}
+
+QPushButton:hover{
+    background-color: #0862ac;
+} 
