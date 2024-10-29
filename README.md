@@ -4,7 +4,7 @@
 **Sampling-Theory Studio** is a desktop application designed to demonstrate the fundamentals of signal sampling and reconstruction, highlighting the importance and validation of the Nyquist–Shannon sampling theorem. This theorem ensures that an analog signal can be fully reconstructed if sampled at a rate at least twice its maximum frequency. This application serves as an interactive educational tool for exploring how different sampling frequencies affect the reconstruction of signals and how aliasing can occur when undersampling.
 
 ## Features
-### 1.**Load & Compose**
+### 1. **Load & Compose**
    - Load signals from external files or create them within the application.
    - Use the **Signal Mixer** to add multiple sinusoidal components with customizable frequencies and magnitudes.
    - Easily remove signal components and reset to default values, ensuring a smooth user experience.
