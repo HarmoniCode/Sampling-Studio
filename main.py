@@ -48,7 +48,7 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 44100
+        self.fs = 44100 
 
         self.initUI()
 
@@ -172,10 +172,9 @@ class SignalMixerApp(QWidget):
         self.difference_plot_widget = PlotWidget()
         grid_layout.addWidget(self.difference_plot_widget)
 
-
-
-        self.plot_widget_2 = PlotWidget()
-        grid_layout.addWidget(self.plot_widget_2)
+        # Frequency Domain Plot Widget
+        self.freq_plot_widget = PlotWidget()
+        grid_layout.addWidget(self.freq_plot_widget)
 
         layout.addLayout(grid_layout)
 
@@ -207,12 +206,16 @@ class SignalMixerApp(QWidget):
         #خد يا لؤي هي دي
         reconstructed_signal = self.selected_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
 
-        # Plot both original and reconstructed signals for comparison
+        # Plot original, reconstructed, and frequency domain signals for comparison
         self.plot_reconstructed_signal(reconstructed_signal)
 
     def plot_reconstructed_signal(self, reconstructed_signal):
+
+        # Clear the plot widgets
         self.plot_widget_1.clear()
         self.difference_plot_widget.clear()
+        self.freq_plot_widget.clear()
+
         # Plot the reconstructed signal
         self.plot_widget_1.plot(self.current_signal_t, reconstructed_signal, pen='r', name="Reconstructed Signal")
 
@@ -222,6 +225,19 @@ class SignalMixerApp(QWidget):
         # Plot the difference signal in the new plot widget
         self.difference_plot_widget.plot(self.current_signal_t, difference_signal, pen='g', name="Difference Signal")
 
+        # Perform FFT on the reconstructed signal
+        N = len(reconstructed_signal)
+        fft_values = np.fft.fft(reconstructed_signal)
+        fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N # Normalize magnitude
+        freq_data = np.fft.fftfreq(N, d=(self.current_signal_t[1] - self.current_signal_t[0]))[:N // 2] # self.current_signal_t[] is the array of  x values (time), N is number of points, d is the sample spacing
+        # many bins showing near-zero magnitudes for other frequencies, because a signal length is of means N frequency bins, even if the signal has only one dominant frequency.
+
+        # Plot the frequency domain of the reconstructed signal
+        self.freq_plot_widget.plot(freq_data, fft_magnitude, pen='y', name="Frequency Signal")
+
+        # self.freq_plot_line = self.freq_plot_widget.plot(freq_data, fft_magnitude, pen="r")
+
+
         self.plot_widget_1.setTitle("Reconstructed Signal")
         self.plot_widget_1.setLabel("left", "Amplitude")
         self.plot_widget_1.setLabel("bottom", "Time [s]")
@@ -229,6 +245,10 @@ class SignalMixerApp(QWidget):
         self.difference_plot_widget.setTitle("Difference Signal")
         self.difference_plot_widget.setLabel("left", "Amplitude")
         self.difference_plot_widget.setLabel("bottom", "Time [s]")
+
+        self.freq_plot_widget.setTitle("Frequency Domain")
+        self.freq_plot_widget.setLabel("left", "Magnitude")
+        self.freq_plot_widget.setLabel("bottom", "Frequency [Hz]")
 
     def whittaker_shannon_reconstruction(self, x, s, t):
         T = s[1] - s[0]
@@ -413,6 +433,7 @@ class SignalMixerApp(QWidget):
                 self.plot_widget.clear()
                 self.plot_widget_1.clear()
                 self.difference_plot_widget.clear()
+                self.freq_plot_widget.clear()
                 self.current_displayed_signal = None
         if self.f_max:
             self.f_max=None
