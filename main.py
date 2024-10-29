@@ -228,8 +228,9 @@ class SignalMixerApp(QWidget):
         # Perform FFT on the reconstructed signal
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
+        # fft_values = np.fft.fft(self.current_signal_data)
         fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N # Normalize magnitude
-        freq_data = np.fft.fftfreq(N, d=(self.current_signal_t[1] - self.current_signal_t[0]))[:N // 2] # self.current_signal_t[] is the array of  x values (time), N is number of points, d is the sample spacing
+        freq_data = np.fft.fftfreq(N, d=( (1/5) * (self.current_signal_t[1] - self.current_signal_t[0]) ))[:N // 2] # self.current_signal_t[] is the array of  x values (time), N is number of points, d is the sample spacing
         # many bins showing near-zero magnitudes for other frequencies, because a signal length is of means N frequency bins, even if the signal has only one dominant frequency.
 
         # Plot the frequency domain of the reconstructed signal
