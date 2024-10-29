@@ -83,7 +83,7 @@ QLineEdit {
     padding: 10px 10px;
 } */
 
-QFrame#grid_layout_frame{
+QFrame#grid_frame{
     border: 1px solid #ccc;
     border-radius: 5px;
     padding:  10px 5px;
