@@ -515,9 +515,9 @@ class SignalMixerApp(QWidget):
                 signal_data = np.loadtxt(file_path, delimiter=',')
 
                 if signal_data.shape[1] > 1:
-                    signal = signal_data[:, 1]
+                    signal = signal_data[:1000, 1]
                 else:
-                    signal = signal_data[:, 0]
+                    signal = signal_data[:1000, 0]
 
                 signal_description = f"Uploaded Signal ({file_path.split('/')[-1]})"
                 list_item_widget = SignalListItemWidget(signal_description)
