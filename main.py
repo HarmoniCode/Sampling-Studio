@@ -3,7 +3,6 @@ import numpy as np
 from PyQt6.QtGui import QIcon
 from PyQt6 import QtWidgets
 from PyQt6.QtCore import Qt, pyqtSignal
-import pyqtgraph as pg
 from scipy.interpolate import interp1d
 from pyqtgraph import ScatterPlotItem
 from pyqtgraph import PlotWidget
@@ -12,7 +11,6 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider
 )
-
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)
@@ -46,7 +44,7 @@ class SignalMixerApp(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Signal Mixer")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1500, 600)
 
         self.signals = []
         self.result_signals = {}
@@ -123,12 +121,18 @@ class SignalMixerApp(QWidget):
         mix_button.setObjectName("mix_button")
         mix_button.setMinimumHeight(35)
         mix_button.clicked.connect(self.mix_signals)
+
+        upload_layout = QHBoxLayout()
+        upload_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         upload_button = QPushButton("Upload Signal")
+        upload_button.setIcon(QIcon("./Icons/upload.png"))
+        upload_button.setFixedWidth(150)
         upload_button.clicked.connect(self.upload_signal)
         add_mix_control_layout.addWidget(add_button)
         add_mix_control_layout.addWidget(mix_button)
 
-        mixer_layout.addWidget(upload_button)
+        upload_layout.addWidget(upload_button)
+        mixer_layout.addLayout(upload_layout)
         mixer_layout.addWidget(input_box_frame)
         mixer_layout.addLayout(add_mix_control_layout)
 
@@ -180,23 +184,23 @@ class SignalMixerApp(QWidget):
 
         plot_reconstructed_layout = QVBoxLayout()
 
-        self.plot_markers_button = QPushButton("Plot Sampling Markers")
-        self.plot_markers_button.clicked.connect(self.plot_sampling_markers)
-        plot_reconstructed_layout.addWidget(self.plot_markers_button)
-
-        self.reconstruct_button = QPushButton("Reconstruct Signal")
-        self.reconstruct_button.clicked.connect(self.reconstruct_signal)
-        plot_reconstructed_layout.addWidget(self.reconstruct_button)
-
         # Create a layout for the sliders
         slider_layout = QVBoxLayout()
 
+        sampling_layout = QHBoxLayout()
+        sampling_label_start = QLabel("Sampling Factor: Fmax")
+        sampling_label_end = QLabel("4 Fmax")
         self.sampling_slider = QSlider(Qt.Orientation.Horizontal)
         self.sampling_slider.setRange(1, 4)
         self.sampling_slider.setValue(1)
         self.sampling_slider.setTickInterval(1)
         self.sampling_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-        slider_layout.addWidget(self.sampling_slider)
+        self.sampling_slider.valueChanged.connect(self.plot_sampling_markers)
+        self.sampling_slider.valueChanged.connect(self.reconstruct_signal)
+        sampling_layout.addWidget(sampling_label_start)
+        sampling_layout.addWidget(self.sampling_slider)
+        sampling_layout.addWidget(sampling_label_end)
+        slider_layout.addLayout(sampling_layout)
 
         snr_layout = QHBoxLayout()
         self.snr_value = QLabel("SNR Level : 0")
@@ -211,14 +215,10 @@ class SignalMixerApp(QWidget):
         slider_layout.addLayout(snr_layout)
         self.snr_slider.valueChanged.connect(self.update_snr_value)    
         self.snr_slider.valueChanged.connect(self.add_noise)  
+        self.snr_slider.valueChanged.connect(self.plot_sampling_markers)
+        self.snr_slider.valueChanged.connect(self.reconstruct_signal)  
 
-        # Create a horizontal layout to combine buttons and sliders
-        compine_layout = QHBoxLayout()
-        compine_layout.addLayout(slider_layout)
-        compine_layout.addLayout(plot_reconstructed_layout)
-
-        # Add the combined layout to the main layout
-        mixer_layout.addLayout(compine_layout)
+        mixer_layout.addLayout(slider_layout)
 
         # Add the main plot widget for the original and reconstructed signals
         grid_frame = QFrame()
@@ -259,6 +259,8 @@ class SignalMixerApp(QWidget):
         return reconstructed_signal
 
     def reconstruct_signal(self):
+        if self.f_max is None:
+            raise AttributeError("Please select a signal first")
         # Get the factor from the slider to determine the sampling frequency
         factor = self.sampling_slider.value()
 
@@ -344,7 +346,7 @@ class SignalMixerApp(QWidget):
         # Get max frequency
         max_freq_idx = np.argmax(magnitude)
         self.f_max = abs(freqs[max_freq_idx])  # Save f_max as an attribute for later use
-        print(f'max_freq_idx {self.f_max}')
+        # print(f'max_freq_idx {self.f_max}')
 
         # Set plot title and labels
         self.plot_widget.setTitle("Signal Waveform with Adjustable Sampling Markers")
@@ -384,10 +386,6 @@ class SignalMixerApp(QWidget):
         spots = [{'pos': (time, amp)} for time, amp in zip(sampling_times, sampling_amplitudes)]
         marker_item.setData(spots)
 
-    # def update_sampling_markers(self):
-    #     factor = self.sampling_slider.value()
-    #     self.plot_sampling_markers(factor)
-
     def display_selected_signal(self):
         selected_items = self.result_list.selectedItems()
         if selected_items:
@@ -401,11 +399,10 @@ class SignalMixerApp(QWidget):
                     # Plot waveform without markers initially
                     self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
 
-                    # Set factor based on current slider position
-                    # factor = self.sampling_slider.value()
 
                     # Plot sampling markers with the current factor
-                    # self.plot_sampling_markers(factor)
+                    self.plot_sampling_markers()
+                    self.reconstruct_signal()
 
                     # Update the component list for the selected signal
                     self.components_list.clear()
