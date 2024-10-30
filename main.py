@@ -73,7 +73,6 @@ class SignalMixerApp(QWidget):
         input_box_frame.setObjectName("input_box_frame")
         input_box_frame.setMaximumHeight(270)
 
-        # input_box_frame.setStyleSheet('''background-color:white;''')
         input_box_frame.setLayout(input_box)
 
         input_frame = QFrame()
@@ -176,15 +175,14 @@ class SignalMixerApp(QWidget):
 
         self.comboBox = QtWidgets.QComboBox()
         self.comboBox.setObjectName("comboBox")
-        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic"])  # Add options
+        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic"])  
         
-        self.comboBox.currentIndexChanged.connect(self.reconstruct_signal)  # Connect event
+        self.comboBox.currentIndexChanged.connect(self.reconstruct_signal)  
         
         mixer_layout.addWidget (self.comboBox)
 
-        plot_reconstructed_layout = QVBoxLayout()
+        # plot_reconstructed_layout = QVBoxLayout()
 
-        # Create a layout for the sliders
         slider_layout = QVBoxLayout()
 
         self.radio1 = QRadioButton("Normalized Frequency")
@@ -245,7 +243,6 @@ class SignalMixerApp(QWidget):
 
         mixer_layout.addLayout(slider_layout)
 
-        # Add the main plot widget for the original and reconstructed signals
         grid_frame = QFrame()
         grid_frame.setObjectName("grid_frame")
         grid_layout = QVBoxLayout()
@@ -257,11 +254,9 @@ class SignalMixerApp(QWidget):
         self.plot_widget_1 = PlotWidget()
         grid_layout.addWidget(self.plot_widget_1)
 
-        # Add a new plot widget for the difference signal
         self.difference_plot_widget = PlotWidget()
         grid_layout.addWidget(self.difference_plot_widget)
 
-        # Frequency Domain Plot Widget
         self.freq_plot_widget = PlotWidget()
         grid_layout.addWidget(self.freq_plot_widget)
 
@@ -292,18 +287,22 @@ class SignalMixerApp(QWidget):
         elif method == "Cubic":
             reconstructed_signal = self.cubic_interpolation(x, s, t)
         return reconstructed_signal
-
-    def reconstruct_signal(self):
-         # Get the factor from the slider to determine the sampling frequency
+    
+    def get_sampling_markers(self):
         if self.radio1.isChecked():
           factor = self.sampling_slider.value()
         else:
             factor = self.sampling_slider_2.value() / 10
-
-        # Calculate the sampling interval based on f_max and factor
+        
         sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
+        return sampling_amplitudes, sampling_times
+
+    def reconstruct_signal(self):
+        sampling_amplitudes, sampling_times = self.get_sampling_markers()
+
+
         method = self.comboBox.currentText()
         if method == "Whittaker-Shannon":
             reconstructed_signal = self.whittaker_shannon_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
@@ -316,7 +315,6 @@ class SignalMixerApp(QWidget):
             raise AttributeError("Please select a signal first")
        
         
-        # Plot original, reconstructed, and frequency domain signals for comparison
         self.plot_reconstructed_signal(reconstructed_signal)
 
     def plot_reconstructed_signal(self, reconstructed_signal):
@@ -326,24 +324,18 @@ class SignalMixerApp(QWidget):
         self.difference_plot_widget.clear()
         self.freq_plot_widget.clear()
 
-        # Plot the reconstructed signal
         self.plot_widget_1.plot(self.current_signal_t, reconstructed_signal, pen='r', name="Reconstructed Signal")
 
-        # Calculate the difference signal
         difference_signal = self.current_signal_data - reconstructed_signal
 
-        # Plot the difference signal in the new plot widget
         self.difference_plot_widget.plot(self.current_signal_t, difference_signal, pen='g', name="Difference Signal")
 
-        # Perform FFT on the reconstructed signal
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
         # fft_values = np.fft.fft(self.current_signal_data)
         fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N # Normalize magnitude
         freq_data = np.fft.fftfreq(N, d=( (1/5) * (self.current_signal_t[1] - self.current_signal_t[0]) ))[:N // 2] # self.current_signal_t[] is the array of  x values (time), N is number of points, d is the sample spacing
-        # many bins showing near-zero magnitudes for other frequencies, because a signal length is of means N frequency bins, even if the signal has only one dominant frequency.
 
-        # Plot the frequency domain of the reconstructed signal
         self.freq_plot_widget.plot(freq_data, fft_magnitude, pen='y', name="Frequency Signal")
 
         # self.freq_plot_line = self.freq_plot_widget.plot(freq_data, fft_magnitude, pen="r")
@@ -367,13 +359,11 @@ class SignalMixerApp(QWidget):
         return np.sum(x[:, np.newaxis] * np.sinc(sinc_matrix / T), axis=0)
 
     def linear_interpolation(self, x, s, t):
-        # Clamp 't' to be within the bounds of 's' to avoid out-of-range errors
         t_clamped = np.clip(t, s[0], s[-1])
         linear_interpolator = interp1d(s, x, kind='linear')
         return linear_interpolator(t_clamped)
 
     def cubic_interpolation(self, x, s, t):
-    # Clamp 't' to be within the bounds of 's' to avoid out-of-range errors
         t_clamped = np.clip(t, s[0], s[-1])
         cubic_interpolator = interp1d(s, x, kind='cubic')
         return cubic_interpolator(t_clamped)
@@ -383,57 +373,41 @@ class SignalMixerApp(QWidget):
         duration = 1  # seconds
         t = np.linspace(0, duration, len(signal))
 
-        # Plot the waveform without sampling markers
         self.plot_widget.plot(t, signal, pen='b')
 
-        # FFT to find dominant (maximum) frequency
         fft_result = np.fft.fft(signal)
         freqs = np.fft.fftfreq(len(signal), 1 / self.fs)
         magnitude = np.abs(fft_result)
 
-        # Get max frequency
         max_freq_idx = np.argmax(magnitude)
-        self.f_max = abs(freqs[max_freq_idx])  # Save f_max as an attribute for later use
+        self.f_max = abs(freqs[max_freq_idx])
         # print(f'max_freq_idx {self.f_max}')
 
-        # Set plot title and labels
         self.plot_widget.setTitle("Signal Waveform with Adjustable Sampling Markers")
         self.plot_widget.setLabel("left", "Amplitude")
         self.plot_widget.setLabel("bottom", "Time [s]")
 
-        # Save signal details for further updates
         self.current_displayed_signal = description
         self.current_signal_t = t
         self.current_signal_data = signal
 
     def plot_sampling_markers(self):
-        if self.radio1.isChecked():
-            factor = self.sampling_slider.value()
-        else:
-            factor = self.sampling_slider_2.value() / 10
+        
+        sampling_amplitudes, sampling_times = self.get_sampling_markers()
 
-        # Calculate sampling interval based on f_max and factor
-        sampling_interval = 1 / (factor * self.f_max)
-        sampling_times = np.arange(0, 1, sampling_interval)
-        sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
 
-        # If no marker list exists for this signal, initialize it
         if not hasattr(self, 'marker_items'):
             self.marker_items = {}
 
-        # Generate a unique key for the current signal
         signal_key = self.current_displayed_signal
 
-        # Clear existing markers for the current signal if they exist
         if signal_key in self.marker_items:
             self.plot_widget.removeItem(self.marker_items[signal_key])
 
-        # Create a new ScatterPlotItem for the current signal markers and add to dictionary
         marker_item = ScatterPlotItem(symbol='o', pen=None, brush='r', size=6)
         self.marker_items[signal_key] = marker_item
         self.plot_widget.addItem(marker_item)
 
-        # Set new marker positions
         spots = [{'pos': (time, amp)} for time, amp in zip(sampling_times, sampling_amplitudes)]
         marker_item.setData(spots)
 
@@ -443,19 +417,15 @@ class SignalMixerApp(QWidget):
             item = selected_items[0]
             item_widget = self.result_list.itemWidget(item)
             if item_widget:
-                # Get the description of the selected signal
                 mixed_signal_description = item_widget.description
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
                 if mixed_signal is not None:
-                    # Plot waveform without markers initially
                     self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
 
 
-                    # Plot sampling markers with the current factor
                     self.plot_sampling_markers()
                     self.reconstruct_signal()
 
-                    # Update the component list for the selected signal
                     self.components_list.clear()
                     components = self.mixed_signal_components.get(mixed_signal_description, [])
                     if components:
@@ -595,7 +565,6 @@ class SignalMixerApp(QWidget):
 
         self.current_displayed_signal = description
 
-########################################################
     def add_noise(self):
         snr_value = self.snr_slider.value()
         selected_items = self.result_list.selectedItems()
@@ -623,7 +592,6 @@ class SignalMixerApp(QWidget):
     def update_snr_value(self,value):
         self.snr_value.setText("SNR Level : " + str(value))
 
-#####################################################################
 app = QApplication(sys.argv)
 window = SignalMixerApp()
 window.show()
