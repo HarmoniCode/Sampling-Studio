@@ -9,7 +9,7 @@ from pyqtgraph import PlotWidget
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider
+    QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider, QRadioButton
 )
 
 class SignalListItemWidget(QFrame):
@@ -178,7 +178,7 @@ class SignalMixerApp(QWidget):
         self.comboBox.setObjectName("comboBox")
         self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic"])  # Add options
         
-        self.comboBox.currentIndexChanged.connect(self.selected_reconstruction)  # Connect event
+        self.comboBox.currentIndexChanged.connect(self.reconstruct_signal)  # Connect event
         
         mixer_layout.addWidget (self.comboBox)
 
@@ -187,10 +187,17 @@ class SignalMixerApp(QWidget):
         # Create a layout for the sliders
         slider_layout = QVBoxLayout()
 
+        self.radio1 = QRadioButton("Normalized Frequency")
+        self.radio2 = QRadioButton("Actual Frequency")
+        self.radio1.setChecked(True)
+        self.radio1.toggled.connect(self.activate_slider)
+        
+
         sampling_layout = QHBoxLayout()
         sampling_label_start = QLabel("Sampling Factor: Fmax")
         sampling_label_end = QLabel("4 Fmax")
         self.sampling_slider = QSlider(Qt.Orientation.Horizontal)
+
         self.sampling_slider.setRange(1, 4)
         self.sampling_slider.setValue(1)
         self.sampling_slider.setTickInterval(1)
@@ -200,7 +207,25 @@ class SignalMixerApp(QWidget):
         sampling_layout.addWidget(sampling_label_start)
         sampling_layout.addWidget(self.sampling_slider)
         sampling_layout.addWidget(sampling_label_end)
+        slider_layout.addWidget(self.radio1)
+        slider_layout.addWidget(self.radio2)
         slider_layout.addLayout(sampling_layout)
+
+
+        sampling_layout_2 = QHBoxLayout()
+        sampling_label_start_2 = QLabel("Sampling Factor: 1")
+        sampling_label_end_2 = QLabel("40 ")
+        self.sampling_slider_2 = QSlider(Qt.Orientation.Horizontal)
+        self.sampling_slider_2.setRange(1, 40)
+        self.sampling_slider_2.setValue(1)
+        self.sampling_slider_2.setTickInterval(1)
+        self.sampling_slider_2.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sampling_slider_2.valueChanged.connect(self.plot_sampling_markers)
+        self.sampling_slider_2.valueChanged.connect(self.reconstruct_signal)
+        sampling_layout_2.addWidget(sampling_label_start_2)
+        sampling_layout_2.addWidget(self.sampling_slider_2)
+        sampling_layout_2.addWidget(sampling_label_end_2)
+        slider_layout.addLayout(sampling_layout_2)
 
         snr_layout = QHBoxLayout()
         self.snr_value = QLabel("SNR Level : 0")
@@ -248,6 +273,16 @@ class SignalMixerApp(QWidget):
 
         self.setLayout(layout)
 
+    def activate_slider(self):
+        if self.radio1.isChecked():
+            self.sampling_slider.setEnabled(True)
+            self.sampling_slider_2.setEnabled(False)
+            self.plot_sampling_markers()
+        else :
+            self.sampling_slider_2.setEnabled(True)
+            self.sampling_slider.setEnabled(False)
+            self.plot_sampling_markers()
+
     def selected_reconstruction(self,x,s,t):
         method = self.comboBox.currentText()
         if method == "Whittaker-Shannon":
@@ -259,19 +294,28 @@ class SignalMixerApp(QWidget):
         return reconstructed_signal
 
     def reconstruct_signal(self):
-        if self.f_max is None:
-            raise AttributeError("Please select a signal first")
-        # Get the factor from the slider to determine the sampling frequency
-        factor = self.sampling_slider.value()
+         # Get the factor from the slider to determine the sampling frequency
+        if self.radio1.isChecked():
+          factor = self.sampling_slider.value()
+        else:
+            factor = self.sampling_slider_2.value() / 10
 
         # Calculate the sampling interval based on f_max and factor
         sampling_interval = 1 / (factor * self.f_max)
-        sampling_times = np.arange(0, 5, sampling_interval)
+        sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
+        method = self.comboBox.currentText()
+        if method == "Whittaker-Shannon":
+            reconstructed_signal = self.whittaker_shannon_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
+        elif method == "Linear":
+            reconstructed_signal = self.linear_interpolation(sampling_amplitudes, sampling_times, self.current_signal_t)
+        elif method == "Cubic":
+            reconstructed_signal = self.cubic_interpolation(sampling_amplitudes, sampling_times, self.current_signal_t)
 
-        #خد يا لؤي هي دي
-        reconstructed_signal = self.selected_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
-
+        if self.f_max is None:
+            raise AttributeError("Please select a signal first")
+       
+        
         # Plot original, reconstructed, and frequency domain signals for comparison
         self.plot_reconstructed_signal(reconstructed_signal)
 
@@ -323,16 +367,20 @@ class SignalMixerApp(QWidget):
         return np.sum(x[:, np.newaxis] * np.sinc(sinc_matrix / T), axis=0)
 
     def linear_interpolation(self, x, s, t):
+        # Clamp 't' to be within the bounds of 's' to avoid out-of-range errors
+        t_clamped = np.clip(t, s[0], s[-1])
         linear_interpolator = interp1d(s, x, kind='linear')
-        return linear_interpolator(t)
+        return linear_interpolator(t_clamped)
 
     def cubic_interpolation(self, x, s, t):
+    # Clamp 't' to be within the bounds of 's' to avoid out-of-range errors
+        t_clamped = np.clip(t, s[0], s[-1])
         cubic_interpolator = interp1d(s, x, kind='cubic')
-        return cubic_interpolator(t)
+        return cubic_interpolator(t_clamped)
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.plot_widget.clear()
-        duration = 5  # seconds
+        duration = 1  # seconds
         t = np.linspace(0, duration, len(signal))
 
         # Plot the waveform without sampling markers
@@ -359,11 +407,14 @@ class SignalMixerApp(QWidget):
         self.current_signal_data = signal
 
     def plot_sampling_markers(self):
-        factor = self.sampling_slider.value()
+        if self.radio1.isChecked():
+            factor = self.sampling_slider.value()
+        else:
+            factor = self.sampling_slider_2.value() / 10
 
         # Calculate sampling interval based on f_max and factor
         sampling_interval = 1 / (factor * self.f_max)
-        sampling_times = np.arange(0, 5, sampling_interval)
+        sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
 
         # If no marker list exists for this signal, initialize it
@@ -536,7 +587,7 @@ class SignalMixerApp(QWidget):
 
     def plot_waveform(self, signal, description=None):
         self.plot_widget.clear()
-        t = np.linspace(0, 5, len(signal))
+        t = np.linspace(0, 1, len(signal))
         self.plot_widget.plot(t, signal, pen='b')
         self.plot_widget.setTitle("Signal Waveform")
         self.plot_widget.setLabel("left", "Amplitude")
