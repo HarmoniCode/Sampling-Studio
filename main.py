@@ -6,11 +6,12 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from scipy.interpolate import interp1d
 from pyqtgraph import ScatterPlotItem
 from pyqtgraph import PlotWidget
-
+from scipy.interpolate import CubicSpline
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider, QRadioButton
 )
+
 
 class SignalListItemWidget(QFrame):
     delete_signal = pyqtSignal(str)
@@ -21,7 +22,6 @@ class SignalListItemWidget(QFrame):
         self.initUI()
 
     def initUI(self):
-        
         layout = QHBoxLayout(self)
         self.label = QLabel(self.description)
         self.label.setObjectName("signal_label")
@@ -33,12 +33,14 @@ class SignalListItemWidget(QFrame):
         self.delete_button.clicked.connect(self.handle_delete)
 
         layout.addWidget(self.label)
-        layout.addSpacerItem(QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+        layout.addSpacerItem(
+            QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
         layout.addWidget(self.delete_button)
         layout.setContentsMargins(0, 0, 0, 0)
 
     def handle_delete(self):
         self.delete_signal.emit(self.description)
+
 
 class SignalMixerApp(QWidget):
     def __init__(self):
@@ -51,7 +53,7 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 44100 
+        self.fs = 44100
         self.f_max = None
 
         self.initUI()
@@ -59,16 +61,16 @@ class SignalMixerApp(QWidget):
     def initUI(self):
         layout = QHBoxLayout()
         with open("index.qss", "r") as f:
-             app.setStyleSheet(f.read())
+            app.setStyleSheet(f.read())
 
         mixer_frame = QFrame()
         mixer_frame.setFixedWidth(600)
         layout.addWidget(mixer_frame)
-        mixer_layout=QVBoxLayout()
+        mixer_layout = QVBoxLayout()
         mixer_layout.setSpacing(15)
         mixer_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         mixer_frame.setLayout(mixer_layout)
-        
+
         input_box = QHBoxLayout()
         input_box_frame = QFrame()
         input_box_frame.setObjectName("input_box_frame")
@@ -84,7 +86,6 @@ class SignalMixerApp(QWidget):
         self.freq_input = QLineEdit()
         self.freq_input.setMinimumHeight(30)
 
-
         self.freq_input.setPlaceholderText("Frequency (Hz)")
         self.amp_input = QLineEdit()
         self.amp_input.setMinimumHeight(30)
@@ -92,24 +93,23 @@ class SignalMixerApp(QWidget):
         self.phase_input = QLineEdit()
         self.phase_input.setMinimumHeight(30)
         self.phase_input.setPlaceholderText("Phase (radians)")
-        
+
         freq_label = QLabel("Frequency:")
         freq_label.setObjectName("input_label")
         input_layout.addWidget(freq_label)
         input_layout.addWidget(self.freq_input)
-        
+
         amp_label = QLabel("Amplitude:")
         amp_label.setObjectName("input_label")
         input_layout.addWidget(amp_label)
         input_layout.addWidget(self.amp_input)
-        
+
         phase_label = QLabel("Phase:")
         phase_label.setObjectName("input_label")
         input_layout.addWidget(phase_label)
         input_layout.addWidget(self.phase_input)
-        
-        input_box.addWidget(input_frame)
 
+        input_box.addWidget(input_frame)
 
         add_mix_control_layout = QHBoxLayout()
 
@@ -140,23 +140,24 @@ class SignalMixerApp(QWidget):
         self.signal_list.itemSelectionChanged.connect(self.display_selected_signal)
         self.signal_list.setObjectName("signal_list")
 
-        signal_list_V=QVBoxLayout()
+        signal_list_V = QVBoxLayout()
         signal_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         Individual_label = QLabel("Individual Signals:")
         Individual_label.setObjectName("bold_label")
-        
+
         signal_list_V.addWidget(Individual_label)
         signal_list_V.addWidget(self.signal_list)
-        signal_list_V.addSpacerItem(QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
-        
+        signal_list_V.addSpacerItem(
+            QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+
         input_box.addLayout(signal_list_V)
 
         result_components_layout = QHBoxLayout()
         result_components_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
         self.result_list = QListWidget()
-        result_list_V=QVBoxLayout()
+        result_list_V = QVBoxLayout()
         result_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
         mixed_label = QLabel("Mixed Signals:")
         result_list_V.addWidget(mixed_label)
@@ -164,7 +165,7 @@ class SignalMixerApp(QWidget):
         result_components_layout.addLayout(result_list_V)
 
         self.components_list = QListWidget()
-        components_list_V=QVBoxLayout()
+        components_list_V = QVBoxLayout()
         components_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         component_label = QLabel("Components of Selected Mixed Signal:")
@@ -174,14 +175,13 @@ class SignalMixerApp(QWidget):
 
         mixer_layout.addLayout(result_components_layout)
 
-
         self.comboBox = QtWidgets.QComboBox()
         self.comboBox.setObjectName("comboBox")
-        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic"])  
-        
-        self.comboBox.currentIndexChanged.connect(self.reconstruct_signal)  
-        
-        mixer_layout.addWidget (self.comboBox)
+        self.comboBox.addItems(["Whittaker-Shannon", "Linear", "Cubic"])
+
+        self.comboBox.currentIndexChanged.connect(self.reconstruct_signal)
+
+        mixer_layout.addWidget(self.comboBox)
 
         # plot_reconstructed_layout = QVBoxLayout()
 
@@ -191,7 +191,6 @@ class SignalMixerApp(QWidget):
         self.radio2 = QRadioButton("Actual Frequency")
         self.radio1.setChecked(True)
         self.radio1.toggled.connect(self.activate_slider)
-        
 
         sampling_layout = QHBoxLayout()
         sampling_label_start = QLabel("Sampling Factor: Fmax")
@@ -210,7 +209,6 @@ class SignalMixerApp(QWidget):
         slider_layout.addWidget(self.radio1)
         slider_layout.addWidget(self.radio2)
         slider_layout.addLayout(sampling_layout)
-
 
         sampling_layout_2 = QHBoxLayout()
         sampling_label_start_2 = QLabel("Sampling Factor: 1")
@@ -239,10 +237,10 @@ class SignalMixerApp(QWidget):
         self.snr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         snr_layout.addWidget(self.snr_slider)
         slider_layout.addLayout(snr_layout)
-        self.snr_slider.valueChanged.connect(self.update_snr_value)    
-        self.snr_slider.valueChanged.connect(self.add_noise)  
+        self.snr_slider.valueChanged.connect(self.update_snr_value)
+        self.snr_slider.valueChanged.connect(self.add_noise)
         self.snr_slider.valueChanged.connect(self.plot_sampling_markers)
-        self.snr_slider.valueChanged.connect(self.reconstruct_signal)  
+        self.snr_slider.valueChanged.connect(self.reconstruct_signal)
 
         mixer_layout.addLayout(slider_layout)
 
@@ -267,7 +265,8 @@ class SignalMixerApp(QWidget):
 
         self.result_list.itemSelectionChanged.connect(self.display_selected_result)
 
-        mixer_layout.addSpacerItem(QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+        mixer_layout.addSpacerItem(
+            QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
 
         self.setLayout(layout)
 
@@ -276,12 +275,12 @@ class SignalMixerApp(QWidget):
             self.sampling_slider.setEnabled(True)
             self.sampling_slider_2.setEnabled(False)
             self.plot_sampling_markers()
-        else :
+        else:
             self.sampling_slider_2.setEnabled(True)
             self.sampling_slider.setEnabled(False)
             self.plot_sampling_markers()
 
-    def selected_reconstruction(self,x,s,t):
+    def selected_reconstruction(self, x, s, t):
         method = self.comboBox.currentText()
         if method == "Whittaker-Shannon":
             reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
@@ -290,26 +289,26 @@ class SignalMixerApp(QWidget):
         elif method == "Cubic":
             reconstructed_signal = self.cubic_interpolation(x, s, t)
         return reconstructed_signal
-    
+
     def get_sampling_markers(self):
         if self.radio1.isChecked():
-           factor = self.sampling_slider.value()
+            factor = self.sampling_slider.value()
         else:
             factor = self.sampling_slider_2.value() / 10
-        
+
         sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
-        print("fmax",self.f_max)
+        print("fmax", self.f_max)
         return sampling_amplitudes, sampling_times
 
     def reconstruct_signal(self):
         sampling_amplitudes, sampling_times = self.get_sampling_markers()
 
-
         method = self.comboBox.currentText()
         if method == "Whittaker-Shannon":
-            reconstructed_signal = self.whittaker_shannon_reconstruction(sampling_amplitudes, sampling_times, self.current_signal_t)
+            reconstructed_signal = self.whittaker_shannon_reconstruction(sampling_amplitudes, sampling_times,
+                                                                         self.current_signal_t)
         elif method == "Linear":
             reconstructed_signal = self.linear_interpolation(sampling_amplitudes, sampling_times, self.current_signal_t)
         elif method == "Cubic":
@@ -317,31 +316,38 @@ class SignalMixerApp(QWidget):
 
         if self.f_max is None:
             raise AttributeError("Please select a signal first")
-       
-        
+
         self.plot_reconstructed_signal(reconstructed_signal)
 
     def plot_reconstructed_signal(self, reconstructed_signal):
 
-        
         self.reconstruct_plot_widget.clear()
         self.difference_plot_widget.clear()
         self.freq_plot_widget.clear()
 
-        self.reconstruct_plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r', name="Reconstructed Signal")
+        self.reconstruct_plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r',
+                                          name="Reconstructed Signal")
 
         difference_signal = self.current_signal_data - reconstructed_signal
 
         self.difference_plot_widget.plot(self.current_signal_t, difference_signal, pen='g', name="Difference Signal")
-        
+
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
-        fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N 
-        freq_data = np.fft.fftfreq(N, d=( (1) * (self.current_signal_t[1] - self.current_signal_t[0]) ))[:N // 2] 
+        fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
+        freq_data = np.fft.fftfreq(N, d=((1) * (self.current_signal_t[1] - self.current_signal_t[0])))[:N // 2]
 
-        self.freq_plot_widget.plot(freq_data, fft_magnitude, pen='y', name="Frequency Signal")
+        # removing unwanted part of the signal
+        mask = freq_data < 1.5 * self.f_max
+        final_freq_data = freq_data[mask]
+        final_fft_magnitude = fft_magnitude[mask]
 
+        self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Frequency Signal")
 
+        # Set the view limit around the signal
+        max_freq_magnitude = max(fft_magnitude)
+        self.freq_plot_widget.setXRange(0, 1.5 * self.f_max)
+        self.freq_plot_widget.setYRange(0, max_freq_magnitude)
 
         self.reconstruct_plot_widget.setTitle("Reconstructed Signal")
         self.reconstruct_plot_widget.setLabel("left", "Amplitude")
@@ -361,18 +367,16 @@ class SignalMixerApp(QWidget):
         return np.sum(x[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
 
     def linear_interpolation(self, x, s, t):
-        t_clamped = np.clip(t, s[0], s[-1])
-        linear_interpolator = interp1d(s, x, kind='linear')
-        return linear_interpolator(t_clamped)
+        linear_interpolator = interp1d(s, x, kind='linear', fill_value="extrapolate")
+        return linear_interpolator(t)
 
     def cubic_interpolation(self, x, s, t):
-        t_clamped = np.clip(t, s[0], s[-1])
-        cubic_interpolator = interp1d(s, x, kind='cubic')
-        return cubic_interpolator(t_clamped)
+        cubic_interpolator = CubicSpline(s, x, bc_type='natural', extrapolate=True)
+        return cubic_interpolator(t)
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.main_plot_widget.clear()
-        duration = 1  
+        duration = 1
         t = np.linspace(0, duration, len(signal))
 
         self.main_plot_widget.plot(t, signal, pen='b')
@@ -386,8 +390,9 @@ class SignalMixerApp(QWidget):
         self.current_signal_data = signal
 
     def plot_sampling_markers(self):
-        
+
         sampling_amplitudes, sampling_times = self.get_sampling_markers()
+
         if not hasattr(self, 'marker_items'):
             self.marker_items = {}
 
@@ -442,7 +447,7 @@ class SignalMixerApp(QWidget):
                     if mixed_signal_description in self.mixed_signal_components:
                         # get the frequency array values from the component description
                         component_frequencies = [
-                            float(comp.split(' ')[1])  
+                            float(comp.split(' ')[1])
                             for comp in self.mixed_signal_components[mixed_signal_description]
                         ]
                         self.f_max = max(component_frequencies) 
@@ -478,7 +483,7 @@ class SignalMixerApp(QWidget):
         components = []
 
         # tracking of max frequency
-        max_frequency = 0  
+        max_frequency = 0
         for frequency, amplitude, phase in self.signals:
             wave = self.generate_wave(frequency, amplitude, phase, duration)
             mixed_signal += wave
@@ -493,7 +498,8 @@ class SignalMixerApp(QWidget):
         self.f_max = max_frequency
 
         list_item_widget = SignalListItemWidget(mixed_signal_description)
-        list_item_widget.delete_signal.connect(lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
+        list_item_widget.delete_signal.connect(
+            lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
         list_item = QListWidgetItem(self.result_list)
         list_item.setSizeHint(list_item_widget.sizeHint())
         self.result_list.setItemWidget(list_item, list_item_widget)
@@ -509,7 +515,6 @@ class SignalMixerApp(QWidget):
         self.reconstruct_signal()
 
         # self.reconstruct_signal(mixed_signal, mixed_signal_description)
-
 
         # Debug for f_max
         print("Mixed Signal Description:", mixed_signal_description)
@@ -537,7 +542,8 @@ class SignalMixerApp(QWidget):
 
         signal_description = f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad"
         list_item_widget = SignalListItemWidget(signal_description)
-        list_item_widget.delete_signal.connect(lambda desc=signal_description: self.delete_signal(self.signal_list, desc, self.signals))
+        list_item_widget.delete_signal.connect(
+            lambda desc=signal_description: self.delete_signal(self.signal_list, desc, self.signals))
 
         list_item = QListWidgetItem(self.signal_list)
         list_item.setSizeHint(list_item_widget.sizeHint())
@@ -585,7 +591,6 @@ class SignalMixerApp(QWidget):
         if components:
             self.components_list.clear()
 
-
     def upload_signal(self):
         file_dialog = QFileDialog()
         file_path, _ = file_dialog.getOpenFileName(self, "Open Signal File", "", "Text Files (*.txt *.csv)")
@@ -602,7 +607,8 @@ class SignalMixerApp(QWidget):
 
                 signal_description = f"Uploaded Signal ({file_path.split('/')[-1]})"
                 list_item_widget = SignalListItemWidget(signal_description)
-                list_item_widget.delete_signal.connect(lambda desc=signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
+                list_item_widget.delete_signal.connect(
+                    lambda desc=signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
 
                 list_item = QListWidgetItem(self.result_list)
                 list_item.setSizeHint(list_item_widget.sizeHint())
@@ -638,8 +644,8 @@ class SignalMixerApp(QWidget):
                 signal = mixed_signal
                 signal_description = mixed_signal_description
                 if snr_value:
-                    signal_power_dB = 10*np.log10(np.mean(np.square(signal)))
-                    noise_power = signal_power_dB / (10**(snr_value/10))
+                    signal_power_dB = 10 * np.log10(np.mean(np.square(signal)))
+                    noise_power = signal_power_dB / (10 ** (snr_value / 10))
                     noise = noise_power * np.random.normal(size=len(signal))
                     noisy_signal = signal + noise
                 else:
@@ -647,9 +653,9 @@ class SignalMixerApp(QWidget):
                 self.noisy_signals[signal_description] = noisy_signal
                 self.plot_waveform_with_markers(noisy_signal, signal_description)
 
-
-    def update_snr_value(self,value):
+    def update_snr_value(self, value):
         self.snr_value.setText("SNR Level : " + str(value))
+
 
 app = QApplication(sys.argv)
 window = SignalMixerApp()
