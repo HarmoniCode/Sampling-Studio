@@ -217,6 +217,7 @@ class SignalMixerApp(QWidget):
         self.sampling_slider_2 = QSlider(Qt.Orientation.Horizontal)
         self.sampling_slider_2.setRange(1, 40)
         self.sampling_slider_2.setValue(1)
+        self.sampling_slider_2.setEnabled(False)
         self.sampling_slider_2.setTickInterval(1)
         self.sampling_slider_2.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.sampling_slider_2.valueChanged.connect(self.plot_sampling_markers)
@@ -517,8 +518,6 @@ class SignalMixerApp(QWidget):
         self.phase_input.clear()
 
     def delete_signal(self, list_widget, description, data_structure):
-
-
         for i in range(list_widget.count()):
             item = list_widget.item(i)
             item_widget = list_widget.itemWidget(item)
@@ -526,8 +525,15 @@ class SignalMixerApp(QWidget):
                 list_widget.takeItem(i)
                 break
 
-        if description in data_structure:
-            del data_structure[description]
+        if data_structure is self.signals:
+            for signal in self.signals:
+                signal_description = f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad"
+                if signal_description == description:
+                    self.signals.remove(signal)
+                    break
+        else:
+            if description in data_structure:
+                del data_structure[description]
 
         if self.current_displayed_signal == description:
             if data_structure:
@@ -539,8 +545,6 @@ class SignalMixerApp(QWidget):
                 self.difference_plot_widget.clear()
                 self.freq_plot_widget.clear()
                 self.current_displayed_signal = None
-        if self.f_max:
-            self.f_max=None
 
         components = self.mixed_signal_components.get(description, [])
         if components:
