@@ -339,7 +339,12 @@ class SignalMixerApp(QWidget):
         fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N 
         freq_data = np.fft.fftfreq(N, d=( (1) * (self.current_signal_t[1] - self.current_signal_t[0]) ))[:N // 2] 
 
-        self.freq_plot_widget.plot(freq_data, fft_magnitude, pen='y', name="Frequency Signal")
+        # removing unwanted part of the signal
+        mask = freq_data < 1.5 * self.f_max
+        final_freq_data = freq_data[mask]
+        final_fft_magnitude = fft_magnitude[mask]
+
+        self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Frequency Signal")
 
         # Set the view limit around the signal
         max_freq_magnitude = max(fft_magnitude)
