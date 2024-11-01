@@ -388,8 +388,6 @@ class SignalMixerApp(QWidget):
     def plot_sampling_markers(self):
         
         sampling_amplitudes, sampling_times = self.get_sampling_markers()
-
-
         if not hasattr(self, 'marker_items'):
             self.marker_items = {}
 
@@ -447,7 +445,7 @@ class SignalMixerApp(QWidget):
                             float(comp.split(' ')[1])  
                             for comp in self.mixed_signal_components[mixed_signal_description]
                         ]
-                        self.f_max = max(component_frequencies) + 0.5
+                        self.f_max = max(component_frequencies) 
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
