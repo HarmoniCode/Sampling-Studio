@@ -341,6 +341,11 @@ class SignalMixerApp(QWidget):
 
         self.freq_plot_widget.plot(freq_data, fft_magnitude, pen='y', name="Frequency Signal")
 
+        # Set the view limit around the signal
+        max_freq_magnitude = max(fft_magnitude)
+        self.freq_plot_widget.setXRange(0, 1.5 * self.f_max)
+        self.freq_plot_widget.setYRange(0, max_freq_magnitude)
+
 
 
         self.reconstruct_plot_widget.setTitle("Reconstructed Signal")
