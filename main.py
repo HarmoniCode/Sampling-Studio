@@ -375,14 +375,7 @@ class SignalMixerApp(QWidget):
 
         self.plot_widget.plot(t, signal, pen='b')
 
-        fft_result = np.fft.fft(signal)
-        freqs = np.fft.fftfreq(len(signal), 1 / self.fs)
-        magnitude = np.abs(fft_result)
-
-        max_freq_idx = np.argmax(magnitude)
-        self.f_max = abs(freqs[max_freq_idx])
-        # print(f'max_freq_idx {self.f_max}')
-
+        # Only plot without recalculating f_max
         self.plot_widget.setTitle("Signal Waveform with Adjustable Sampling Markers")
         self.plot_widget.setLabel("left", "Amplitude")
         self.plot_widget.setLabel("bottom", "Time [s]")
@@ -420,9 +413,25 @@ class SignalMixerApp(QWidget):
                 mixed_signal_description = item_widget.description
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
                 if mixed_signal is not None:
+                    # Check if the signal is a mixed signal or an uploaded signal
+                    if mixed_signal_description in self.mixed_signal_components:
+                        # get the frequency array values from the component description
+                        component_frequencies = [
+                            float(comp.split(' ')[1])  
+                            for comp in self.mixed_signal_components[mixed_signal_description]
+                        ]
+                        self.f_max = max(component_frequencies)
+                    else:
+                        fft_result = np.fft.fft(mixed_signal)
+                        freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
+                        magnitude = np.abs(fft_result)
+
+                        positive_freqs = freqs[freqs >= 0]
+                        positive_magnitude = magnitude[freqs >= 0]
+                        max_freq_idx = np.argmax(positive_magnitude)
+                        self.f_max = positive_freqs[max_freq_idx]
+
                     self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
-
-
                     self.plot_sampling_markers()
                     self.reconstruct_signal()
 
@@ -433,23 +442,32 @@ class SignalMixerApp(QWidget):
                     else:
                         self.components_list.addItem("No components found")
 
-                print("Selected Signal:", mixed_signal_description)
-                print("Components:", components)
+                    # Debug print for f_max
+                    print("Selected Signal:", mixed_signal_description)
+                    print("Components:", components)
+                    print("fmax:", self.f_max)
 
     def mix_signals(self):
-
         duration = 1
         mixed_signal = np.zeros(int(self.fs * duration))
         components = []
 
+        # tracking of max frequency
+        max_frequency = 0  
         for frequency, amplitude, phase in self.signals:
             wave = self.generate_wave(frequency, amplitude, phase, duration)
             mixed_signal += wave
             components.append(f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad")
+            
+   
+            max_frequency = max(max_frequency, frequency)
 
         mixed_signal_description = f"Signal{len(self.result_list) + 1}"
         self.result_signals[mixed_signal_description] = mixed_signal
         self.mixed_signal_components[mixed_signal_description] = components
+
+        # final result of max frequency
+        self.f_max = max_frequency
 
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
@@ -461,14 +479,17 @@ class SignalMixerApp(QWidget):
         self.signals.clear()
         self.signal_list.clear()
 
-        # print("Mixed Signal Description:", mixed_signal_description)
-        # print("Mixed Signal Components:", components)
-        # print("Current Result Signals:", self.result_signals)
-        # print("Current Mixed Signal Components:", self.mixed_signal_components)
+        # Debug for f_max
+        print("Mixed Signal Description:", mixed_signal_description)
+        print("Mixed Signal Components:", components)
+        print("Current Result Signals:", self.result_signals)
+        print("Current Mixed Signal Components:", self.mixed_signal_components)
+        print("fmax", self.f_max)  
 
     def generate_wave(self, frequency, amplitude, phase, duration):
         t = np.linspace(0, duration, int(self.fs * duration), endpoint=False)
         wave = amplitude * np.sin(2 * np.pi * frequency * t + phase)
+        print(f"Generated wave: freq={frequency}, amp={amplitude}, phase={phase}, duration={duration}")
         return wave
 
     def add_signal(self):
