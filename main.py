@@ -52,6 +52,7 @@ class SignalMixerApp(QWidget):
         self.mixed_signal_components = {}
         self.noisy_signals = {}
         self.fs = 44100 
+        self.f_max = None
 
         self.initUI()
 
@@ -290,13 +291,14 @@ class SignalMixerApp(QWidget):
     
     def get_sampling_markers(self):
         if self.radio1.isChecked():
-          factor = self.sampling_slider.value()
+           factor = self.sampling_slider.value()
         else:
             factor = self.sampling_slider_2.value() / 10
         
         sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, 1, sampling_interval)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
+        print("fmax",self.f_max)
         return sampling_amplitudes, sampling_times
 
     def reconstruct_signal(self):
@@ -329,16 +331,14 @@ class SignalMixerApp(QWidget):
         difference_signal = self.current_signal_data - reconstructed_signal
 
         self.difference_plot_widget.plot(self.current_signal_t, difference_signal, pen='g', name="Difference Signal")
-
+        
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
-        # fft_values = np.fft.fft(self.current_signal_data)
-        fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N # Normalize magnitude
-        freq_data = np.fft.fftfreq(N, d=( (1/5) * (self.current_signal_t[1] - self.current_signal_t[0]) ))[:N // 2] # self.current_signal_t[] is the array of  x values (time), N is number of points, d is the sample spacing
+        fft_magnitude = np.abs(fft_values[:N//2]) * 2 / N 
+        freq_data = np.fft.fftfreq(N, d=( (1) * (self.current_signal_t[1] - self.current_signal_t[0]) ))[:N // 2] 
 
         self.freq_plot_widget.plot(freq_data, fft_magnitude, pen='y', name="Frequency Signal")
 
-        # self.freq_plot_line = self.freq_plot_widget.plot(freq_data, fft_magnitude, pen="r")
 
 
         self.plot_widget_1.setTitle("Reconstructed Signal")
@@ -356,7 +356,7 @@ class SignalMixerApp(QWidget):
     def whittaker_shannon_reconstruction(self, x, s, t):
         T = s[1] - s[0]
         sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
-        return np.sum(x[:, np.newaxis] * np.sinc(sinc_matrix / T), axis=0)
+        return np.sum(x[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
 
     def linear_interpolation(self, x, s, t):
         t_clamped = np.clip(t, s[0], s[-1])
@@ -370,7 +370,7 @@ class SignalMixerApp(QWidget):
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.plot_widget.clear()
-        duration = 1  # seconds
+        duration = 1  
         t = np.linspace(0, duration, len(signal))
 
         self.plot_widget.plot(t, signal, pen='b')
@@ -574,7 +574,6 @@ class SignalMixerApp(QWidget):
             if item_widget:
                 mixed_signal_description = item_widget.description
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
-
 
                 signal = mixed_signal
                 signal_description = mixed_signal_description
