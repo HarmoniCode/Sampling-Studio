@@ -27,16 +27,16 @@ QPushButton {
 }
 
 QLabel {
-  font-size: 12px;
+  font-size: 15px;
   font-weight: bold;
   color: #ddd;
 }
 
-QLabel#bold_label {
+/* QLabel#bold_label {
   font-weight: bold;
   font-size: 15px;
   color: #ddd;
-}
+} */
 
 QListWidget {
   border: 1px solid #2196f3;
@@ -105,7 +105,7 @@ QLineEdit {
 }
 
 QFrame#grid_frame {
-  /* border: 1px solid #2196f3; */
+  border: 1px solid #666 ;
   border-radius: 5px;
   padding: 10px 5px;
   background-color: #333;

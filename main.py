@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
     QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider, QRadioButton
 )
+from PyQt6 import QtCore
 
 
 class SignalListItemWidget(QFrame):
@@ -130,6 +131,7 @@ class SignalMixerApp(QWidget):
 
         self.change_mode_button = QPushButton()
         self.change_mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
+        self.change_mode_button.setIconSize(QtCore.QSize(25, 25))
         self.change_mode_button.setFixedWidth(50)
         self.change_mode_button.clicked.connect(self.change_mode)
 
@@ -293,7 +295,6 @@ class SignalMixerApp(QWidget):
                 app.setStyleSheet(f.read())
             self.change_mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
             self.current_mode = "light"
-        print("Current mode: " + self.current_mode)
 
     def activate_slider(self):
         if self.radio1.isChecked():

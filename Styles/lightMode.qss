@@ -43,10 +43,10 @@ QLabel {
   font-size: 12px;
   font-weight: bold;
 }
-QLabel#bold_label {
+/* QLabel#bold_label {
   font-weight: bold;
   font-size: 15px;
-}
+} */
 
 QListWidget {
   border: 1px solid #ccc;
