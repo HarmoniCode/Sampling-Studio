@@ -1,0 +1,120 @@
+QWidget#mainWindow {
+  background-color: #222;
+}
+
+QPushButton#delete_button {
+  font-weight: bold;
+  font-size: 10px;
+  border-radius: 5px;
+  padding: 10px 10px;
+  background-color: #2196f3;
+  color: #fff;
+}
+
+QPushButton#delete_button:hover {
+  background-color: red;
+}
+
+QPushButton {
+  background-color: #2196f3;
+  color: white;
+  font-weight: bold;
+  font-size: 15px;
+  border-radius: 5px;
+  padding: 10px 10px;
+  height: 25px;
+  margin-right: 5px;
+}
+
+QLabel {
+  font-size: 12px;
+  font-weight: bold;
+  color: #ddd;
+}
+
+QLabel#bold_label {
+  font-weight: bold;
+  font-size: 15px;
+  color: #ddd;
+}
+
+QListWidget {
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  padding: 5px;
+  max-height: 200px;
+  min-height: 200px;
+  /* background-color: #333; */
+  color: #ddd;
+}
+
+QFrame#mixer_frame {
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  padding: 10px 5px;
+}
+
+QLabel#signal_label{
+    color:#000;
+    padding: 7px 6px;
+}
+
+QFrame#input_box_frame {
+  /* border: 1px solid #2196f3; */
+  border-radius: 5px;
+  padding: 10px 5px;
+  background-color: #333;
+}
+
+QComboBox#comboBox {
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  padding: 7px;
+  background-color: #333;
+  color: #ddd;
+}
+
+QComboBox#comboBox::drop-down {
+  subcontrol-origin: padding;
+  subcontrol-position: top right;
+  width: 25px;
+  border-left-width: 1px;
+  border-left-color: #2196f3;
+  border-left-style: solid;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  background-color: #2196f3;
+}
+
+QComboBox#comboBox::text {
+  color: #fff;
+}
+
+QComboBox#comboBox::down-arrow {
+  image: url(./icons/arrow_down.png);
+  width: 15px;
+  height: 15px;
+}
+
+QLineEdit {
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  padding: 5px;
+  background-color: #fff;
+  color: #272727;
+}
+
+QFrame#grid_frame {
+  /* border: 1px solid #2196f3; */
+  border-radius: 5px;
+  padding: 10px 5px;
+  background-color: #333;
+}
+
+QPushButton:hover {
+  background-color: #666;
+}
+
+QRadioButton {
+  color: #fff;
+}

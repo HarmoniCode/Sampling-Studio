@@ -27,8 +27,8 @@ class SignalListItemWidget(QFrame):
         self.label.setObjectName("signal_label")
         self.delete_button = QPushButton()
         self.delete_button.setObjectName("delete_button")
-        self.delete_button.setFixedWidth(20)
-        self.delete_button.setFixedHeight(20)
+        self.delete_button.setFixedWidth(30)
+        self.delete_button.setFixedHeight(28)
         self.delete_button.setIcon(QIcon("./Icons/minus.png"))
         self.delete_button.clicked.connect(self.handle_delete)
 
@@ -45,6 +45,7 @@ class SignalListItemWidget(QFrame):
 class SignalMixerApp(QWidget):
     def __init__(self):
         super().__init__()
+        self.setObjectName("mainWindow")
         self.setWindowTitle("Signal Mixer")
         self.setGeometry(100, 100, 1500, 600)
 
@@ -55,15 +56,16 @@ class SignalMixerApp(QWidget):
         self.noisy_signals = {}
         self.fs = 44100
         self.f_max = None
+        self.current_mode = "dark"
 
         self.initUI()
 
     def initUI(self):
         layout = QHBoxLayout()
-        with open("index.qss", "r") as f:
-            app.setStyleSheet(f.read())
+        self.change_mode()
 
         mixer_frame = QFrame()
+        mixer_frame.setObjectName("mixer_frame")
         mixer_frame.setFixedWidth(600)
         layout.addWidget(mixer_frame)
         mixer_layout = QVBoxLayout()
@@ -128,10 +130,19 @@ class SignalMixerApp(QWidget):
         upload_button.setIcon(QIcon("./Icons/upload.png"))
         upload_button.setFixedWidth(150)
         upload_button.clicked.connect(self.upload_signal)
+
+        self.change_mode_button = QPushButton("Change Mode")
+        self.change_mode_button.setFixedWidth(150)
+        self.change_mode_button.clicked.connect(self.change_mode)
+
+
         add_mix_control_layout.addWidget(add_button)
         add_mix_control_layout.addWidget(mix_button)
 
         upload_layout.addWidget(upload_button)
+        upload_layout.addWidget(self.change_mode_button)
+
+        
         mixer_layout.addLayout(upload_layout)
         mixer_layout.addWidget(input_box_frame)
         mixer_layout.addLayout(add_mix_control_layout)
@@ -168,7 +179,7 @@ class SignalMixerApp(QWidget):
         components_list_V = QVBoxLayout()
         components_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        component_label = QLabel("Components of Selected Mixed Signal:")
+        component_label = QLabel("Signal Components :")
         components_list_V.addWidget(component_label)
         components_list_V.addWidget(self.components_list)
         result_components_layout.addLayout(components_list_V)
@@ -231,7 +242,7 @@ class SignalMixerApp(QWidget):
         snr_layout.addWidget(self.snr_value)
 
         self.snr_slider = QSlider(Qt.Orientation.Horizontal)
-        self.snr_slider.setRange(0, 100)
+        self.snr_slider.setRange(1, 100)
         self.snr_slider.setValue(100)
         self.snr_slider.setTickInterval(5)
         self.snr_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
@@ -269,6 +280,17 @@ class SignalMixerApp(QWidget):
             QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
 
         self.setLayout(layout)
+
+
+    def change_mode(self):
+        if self.current_mode == "light":
+            with open("./Styles/darkMode.qss", "r") as f:
+                app.setStyleSheet(f.read())
+            self.current_mode = "dark"
+        else:
+            with open("./Styles/lightMode.qss", "r") as f:
+                app.setStyleSheet(f.read())
+            self.current_mode = "light"
 
     def activate_slider(self):
         if self.radio1.isChecked():
@@ -450,7 +472,7 @@ class SignalMixerApp(QWidget):
                             float(comp.split(' ')[1])
                             for comp in self.mixed_signal_components[mixed_signal_description]
                         ]
-                        self.f_max = max(component_frequencies) 
+                        self.f_max = max(component_frequencies) + 0.25
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -459,7 +481,7 @@ class SignalMixerApp(QWidget):
                         positive_freqs = freqs[freqs >= 0]
                         positive_magnitude = magnitude[freqs >= 0]
                         max_freq_idx = np.argmax(positive_magnitude)
-                        self.f_max = positive_freqs[max_freq_idx]
+                        self.f_max = positive_freqs[max_freq_idx]  + 0.25
 
                     self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
                     self.plot_sampling_markers()
@@ -495,8 +517,7 @@ class SignalMixerApp(QWidget):
         self.mixed_signal_components[mixed_signal_description] = components
 
         # final result of max frequency
-        self.f_max = max_frequency
-
+        self.f_max = max_frequency 
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(
             lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))

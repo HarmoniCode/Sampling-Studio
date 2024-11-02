@@ -1,3 +1,7 @@
+QWidget#mainWindow {
+  background-color: #e5e4e4;
+}
+
 QPushButton#delete_button {
   font-weight: bold;
   font-size: 10px;
@@ -20,6 +24,20 @@ QPushButton {
   height: 25px;
 }
 
+QFrame#grid_frame {
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  padding: 10px 5px;
+  background-color: #f8f8f8;
+}
+
+QFrame#mixer_frame {
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  padding: 10px 5px;
+  background-color: #f8f8f8;
+}
+
 
 QLabel {
   font-size: 12px;
@@ -36,13 +54,21 @@ QListWidget {
   padding: 5px;
   max-height: 200px;
   min-height: 200px;
+  background-color: white;
 }
 
 QFrame#input_box_frame{
     border: 1px solid #ccc;
     border-radius: 5px;
     padding:  10px 5px;
+    background-color: rgb(241, 241, 241);
     /* padding-bottom: 25px; */
+}
+
+Qinput#input_box{
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 5px;
 }
 
 QComboBox#comboBox {
@@ -72,6 +98,9 @@ QLineEdit {
   border: 1px solid #ccc;
   border-radius: 5px;
   padding: 5px;
+}
+QLineEdit:focus {
+  border: 2px solid #2196f3;
 }
 
 /* QPushButton#plot_button, QPushButton#reconstruct_button{
