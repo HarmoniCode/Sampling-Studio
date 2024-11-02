@@ -24,6 +24,7 @@ class SignalListItemWidget(QFrame):
 
     def initUI(self):
         layout = QHBoxLayout(self)
+        
         self.label = QLabel(self.description)
         self.label.setObjectName("signal_label")
         self.delete_button = QPushButton()
@@ -32,6 +33,8 @@ class SignalListItemWidget(QFrame):
         self.delete_button.setFixedHeight(28)
         self.delete_button.setIcon(QIcon("./Icons/minus.png"))
         self.delete_button.clicked.connect(self.handle_delete)
+
+        self.setStyleSheet("QFrame {border: 1px solid #ccc; border-radius: 5px; padding: 5px;}")
 
         layout.addWidget(self.label)
         layout.addSpacerItem(
@@ -65,7 +68,7 @@ class SignalMixerApp(QWidget):
         layout = QHBoxLayout()
         mixer_frame = QFrame()
         mixer_frame.setObjectName("mixer_frame")
-        mixer_frame.setFixedWidth(600)
+        mixer_frame.setFixedWidth(650)
         layout.addWidget(mixer_frame)
         mixer_layout = QVBoxLayout()
         mixer_layout.setSpacing(15)
@@ -435,9 +438,11 @@ class SignalMixerApp(QWidget):
         marker_item.setData(spots)
 
     def display_selected_signal(self):
+
         self.difference_plot_widget.clear()
         self.reconstruct_plot_widget.clear()
         self.freq_plot_widget.clear()
+        
         selected_signal_items = self.signal_list.selectedItems()
         if selected_signal_items:
             # Clear selection in the result list
