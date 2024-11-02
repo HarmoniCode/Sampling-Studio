@@ -62,8 +62,6 @@ class SignalMixerApp(QWidget):
 
     def initUI(self):
         layout = QHBoxLayout()
-        self.change_mode()
-
         mixer_frame = QFrame()
         mixer_frame.setObjectName("mixer_frame")
         mixer_frame.setFixedWidth(600)
@@ -125,14 +123,14 @@ class SignalMixerApp(QWidget):
         mix_button.clicked.connect(self.mix_signals)
 
         upload_layout = QHBoxLayout()
-        upload_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         upload_button = QPushButton("Upload Signal")
         upload_button.setIcon(QIcon("./Icons/upload.png"))
         upload_button.setFixedWidth(150)
         upload_button.clicked.connect(self.upload_signal)
 
-        self.change_mode_button = QPushButton("Change Mode")
-        self.change_mode_button.setFixedWidth(150)
+        self.change_mode_button = QPushButton()
+        self.change_mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
+        self.change_mode_button.setFixedWidth(50)
         self.change_mode_button.clicked.connect(self.change_mode)
 
 
@@ -140,6 +138,7 @@ class SignalMixerApp(QWidget):
         add_mix_control_layout.addWidget(mix_button)
 
         upload_layout.addWidget(upload_button)
+        upload_layout.addSpacerItem(QtWidgets.QSpacerItem(1000, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
         upload_layout.addWidget(self.change_mode_button)
 
         
@@ -280,6 +279,7 @@ class SignalMixerApp(QWidget):
             QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
 
         self.setLayout(layout)
+        self.change_mode()
 
 
     def change_mode(self):
@@ -287,10 +287,13 @@ class SignalMixerApp(QWidget):
             with open("./Styles/darkMode.qss", "r") as f:
                 app.setStyleSheet(f.read())
             self.current_mode = "dark"
+            self.change_mode_button.setIcon(QIcon("./Icons/light-mode.png"))
         else:
             with open("./Styles/lightMode.qss", "r") as f:
                 app.setStyleSheet(f.read())
+            self.change_mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
             self.current_mode = "light"
+        print("Current mode: " + self.current_mode)
 
     def activate_slider(self):
         if self.radio1.isChecked():
