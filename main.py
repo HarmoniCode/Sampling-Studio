@@ -323,7 +323,10 @@ class SignalMixerApp(QWidget):
             factor = self.sampling_slider_2.value() / 10
 
         sampling_interval = 1 / (factor * self.f_max)
-        sampling_times = np.arange(0, 1, sampling_interval)
+        sampling_times_1 = np.arange(0, 1, sampling_interval)
+        sampling_times = np.append(sampling_times_1,1)
+
+        print(sampling_times)
         sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
         print("fmax", self.f_max)
         return sampling_amplitudes, sampling_times
