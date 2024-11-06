@@ -285,6 +285,7 @@ class SignalMixerApp(QWidget):
 
 
     def change_mode(self):
+
         if self.current_mode == "light":
             with open("./Styles/darkMode.qss", "r") as f:
                 app.setStyleSheet(f.read())
@@ -306,14 +307,14 @@ class SignalMixerApp(QWidget):
             self.sampling_slider.setEnabled(False)
             self.plot_sampling_markers()
 
-    def selected_reconstruction(self, x, s, t):
+    def selected_reconstruction(self, amplitude, sampling_time, current_time):
         method = self.comboBox.currentText()
         if method == "Whittaker-Shannon":
-            reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
+            reconstructed_signal = self.whittaker_shannon_reconstruction(amplitude, sampling_time, current_time)
         elif method == "Linear":
-            reconstructed_signal = self.linear_interpolation(x, s, t)
+            reconstructed_signal = self.linear_interpolation(amplitude, sampling_time, current_time)
         elif method == "Cubic":
-            reconstructed_signal = self.cubic_interpolation(x, s, t)
+            reconstructed_signal = self.cubic_interpolation(amplitude, sampling_time, current_time)
         return reconstructed_signal
 
     def get_sampling_markers(self):
@@ -357,6 +358,10 @@ class SignalMixerApp(QWidget):
         self.reconstruct_plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r',
                                           name="Reconstructed Signal")
 
+
+        # self.main_plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r',
+        #                                   name="Reconstructed Signal")
+
         difference_signal = self.current_signal_data - reconstructed_signal
 
         self.difference_plot_widget.plot(self.current_signal_t, difference_signal, pen='g', name="Difference Signal")
@@ -390,32 +395,32 @@ class SignalMixerApp(QWidget):
         self.freq_plot_widget.setLabel("left", "Magnitude")
         self.freq_plot_widget.setLabel("bottom", "Frequency [Hz]")
 
-    def whittaker_shannon_reconstruction(self, x, s, t):
-        T = s[1] - s[0]
-        sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
-        return np.sum(x[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
+    def whittaker_shannon_reconstruction(self, amplitude, sampling_time, current_time):
+        T = sampling_time[1] - sampling_time[0]
+        sinc_matrix = np.tile(current_time, (len(sampling_time), 1)) - np.tile(sampling_time[:, np.newaxis], (1, len(current_time)))
+        return np.sum(amplitude[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
 
-    def linear_interpolation(self, x, s, t):
-        linear_interpolator = interp1d(s, x, kind='linear', fill_value="extrapolate")
-        return linear_interpolator(t)
+    def linear_interpolation(self, amplitude, sampling_time, current_time):
+        linear_interpolator = interp1d(sampling_time, amplitude, kind='linear', fill_value="extrapolate")
+        return linear_interpolator(current_time)
 
-    def cubic_interpolation(self, x, s, t):
-        cubic_interpolator = CubicSpline(s, x, bc_type='natural', extrapolate=True)
-        return cubic_interpolator(t)
+    def cubic_interpolation(self, amplitude, sampling_time, current_time):
+        cubic_interpolator = CubicSpline(sampling_time, amplitude)
+        return cubic_interpolator(current_time)
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.main_plot_widget.clear()
         duration = 1
-        t = np.linspace(0, duration, len(signal))
+        current_time = np.linspace(0, duration, len(signal))
 
-        self.main_plot_widget.plot(t, signal, pen='b')
+        self.main_plot_widget.plot(current_time, signal, pen='b')
 
-        self.main_plot_widget.setTitle("Signal Waveform with Adjustable Sampling Markers")
+        self.main_plot_widget.setTitle("Signal Waveform")
         self.main_plot_widget.setLabel("left", "Amplitude")
         self.main_plot_widget.setLabel("bottom", "Time [s]")
 
         self.current_displayed_signal = description
-        self.current_signal_t = t
+        self.current_signal_t = current_time
         self.current_signal_data = signal
 
     def plot_sampling_markers(self):
