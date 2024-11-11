@@ -8,8 +8,19 @@ from pyqtgraph import ScatterPlotItem
 from pyqtgraph import PlotWidget
 from scipy.interpolate import CubicSpline
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
-    QPushButton, QListWidget, QListWidgetItem, QFileDialog, QFrame, QSlider, QRadioButton
+    QApplication,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QListWidget,
+    QListWidgetItem,
+    QFileDialog,
+    QFrame,
+    QSlider,
+    QRadioButton,
 )
 from PyQt6 import QtCore
 
@@ -24,6 +35,7 @@ class SignalListItemWidget(QFrame):
 
     def initUI(self):
         layout = QHBoxLayout(self)
+
         self.label = QLabel(self.description)
         self.label.setObjectName("signal_label")
         self.delete_button = QPushButton()
@@ -33,9 +45,19 @@ class SignalListItemWidget(QFrame):
         self.delete_button.setIcon(QIcon("./Icons/minus.png"))
         self.delete_button.clicked.connect(self.handle_delete)
 
+        self.setStyleSheet(
+            "QFrame {border: 1px solid #ccc; border-radius: 5px; padding: 5px;}"
+        )
+
         layout.addWidget(self.label)
         layout.addSpacerItem(
-            QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+            QtWidgets.QSpacerItem(
+                0,
+                0,
+                QtWidgets.QSizePolicy.Policy.Minimum,
+                QtWidgets.QSizePolicy.Policy.Expanding,
+            )
+        )
         layout.addWidget(self.delete_button)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -55,10 +77,11 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 44100
+        self.fs = 1000
         self.updated_fs = 44100; # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
+        self.duration=10
 
         self.initUI()
 
@@ -66,7 +89,7 @@ class SignalMixerApp(QWidget):
         layout = QHBoxLayout()
         mixer_frame = QFrame()
         mixer_frame.setObjectName("mixer_frame")
-        mixer_frame.setFixedWidth(600)
+        mixer_frame.setFixedWidth(650)
         layout.addWidget(mixer_frame)
         mixer_layout = QVBoxLayout()
         mixer_layout.setSpacing(15)
@@ -130,21 +153,26 @@ class SignalMixerApp(QWidget):
         upload_button.setFixedWidth(150)
         upload_button.clicked.connect(self.upload_signal)
 
-        self.change_mode_button = QPushButton()
-        self.change_mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
-        self.change_mode_button.setIconSize(QtCore.QSize(25, 25))
-        self.change_mode_button.setFixedWidth(50)
-        self.change_mode_button.clicked.connect(self.change_mode)
-
+        self.mode_button = QPushButton()
+        self.mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
+        self.mode_button.setIconSize(QtCore.QSize(25, 25))
+        self.mode_button.setFixedWidth(50)
+        self.mode_button.clicked.connect(self.switch_mode)
 
         add_mix_control_layout.addWidget(add_button)
         add_mix_control_layout.addWidget(mix_button)
 
         upload_layout.addWidget(upload_button)
-        upload_layout.addSpacerItem(QtWidgets.QSpacerItem(1000, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
-        upload_layout.addWidget(self.change_mode_button)
+        upload_layout.addSpacerItem(
+            QtWidgets.QSpacerItem(
+                1000,
+                0,
+                QtWidgets.QSizePolicy.Policy.Minimum,
+                QtWidgets.QSizePolicy.Policy.Expanding,
+            )
+        )
+        upload_layout.addWidget(self.mode_button)
 
-        
         mixer_layout.addLayout(upload_layout)
         mixer_layout.addWidget(input_box_frame)
         mixer_layout.addLayout(add_mix_control_layout)
@@ -162,7 +190,13 @@ class SignalMixerApp(QWidget):
         signal_list_V.addWidget(Individual_label)
         signal_list_V.addWidget(self.signal_list)
         signal_list_V.addSpacerItem(
-            QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+            QtWidgets.QSpacerItem(
+                0,
+                0,
+                QtWidgets.QSizePolicy.Policy.Minimum,
+                QtWidgets.QSizePolicy.Policy.Expanding,
+            )
+        )
 
         input_box.addLayout(signal_list_V)
 
@@ -207,7 +241,7 @@ class SignalMixerApp(QWidget):
 
         sampling_layout = QHBoxLayout()
         sampling_label_start = QLabel("Sampling Factor: Fmax")
-        sampling_label_end = QLabel("4 Fmax")
+        sampling_label_end = QLabel(" 4 Fmax")
         self.sampling_slider = QSlider(Qt.Orientation.Horizontal)
 
         self.sampling_slider.setRange(1, 4)
@@ -225,18 +259,18 @@ class SignalMixerApp(QWidget):
 
         sampling_layout_2 = QHBoxLayout()
         sampling_label_start_2 = QLabel("Sampling Factor: 1")
-        sampling_label_end_2 = QLabel("40 ")
-        self.sampling_slider_2 = QSlider(Qt.Orientation.Horizontal)
-        self.sampling_slider_2.setRange(1, 40)
-        self.sampling_slider_2.setValue(1)
-        self.sampling_slider_2.setEnabled(False)
-        self.sampling_slider_2.setTickInterval(1)
-        self.sampling_slider_2.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.sampling_slider_2.valueChanged.connect(self.plot_sampling_markers)
-        self.sampling_slider_2.valueChanged.connect(self.reconstruct_signal)
+        self.sampling_label_end_2 = QLabel()
+        self.sampling_slider_actual = QSlider(Qt.Orientation.Horizontal)
+        self.sampling_slider_actual.setRange(1, 40)
+        self.sampling_slider_actual.setValue(1)
+        self.sampling_slider_actual.setEnabled(False)
+        self.sampling_slider_actual.setTickInterval(1)
+        self.sampling_slider_actual.setTickPosition(QSlider.TickPosition.TicksBelow)
+        self.sampling_slider_actual.valueChanged.connect(self.plot_sampling_markers)
+        self.sampling_slider_actual.valueChanged.connect(self.reconstruct_signal)
         sampling_layout_2.addWidget(sampling_label_start_2)
-        sampling_layout_2.addWidget(self.sampling_slider_2)
-        sampling_layout_2.addWidget(sampling_label_end_2)
+        sampling_layout_2.addWidget(self.sampling_slider_actual)
+        sampling_layout_2.addWidget(self.sampling_label_end_2)
         slider_layout.addLayout(sampling_layout_2)
 
         snr_layout = QHBoxLayout()
@@ -263,15 +297,29 @@ class SignalMixerApp(QWidget):
         grid_frame.setLayout(grid_layout)
 
         self.main_plot_widget = PlotWidget()
+        self.main_plot_widget.setTitle("Signal Waveform")
+        self.main_plot_widget.setLabel("left", "Amplitude")
+        self.main_plot_widget.setLabel("bottom", "Time [s]")
         grid_layout.addWidget(self.main_plot_widget)
 
         self.reconstruct_plot_widget = PlotWidget()
+        self.reconstruct_plot_widget.setTitle("Reconstructed Signal")
+        self.reconstruct_plot_widget.setLabel("left", "Amplitude")
+        self.reconstruct_plot_widget.setLabel("bottom", "Time [s]")
+
         grid_layout.addWidget(self.reconstruct_plot_widget)
 
         self.difference_plot_widget = PlotWidget()
+        self.difference_plot_widget.setTitle("Difference Signal")
+        self.difference_plot_widget.setLabel("left", "Amplitude")
+        self.difference_plot_widget.setLabel("bottom", "Time [s]")
+
         grid_layout.addWidget(self.difference_plot_widget)
 
         self.freq_plot_widget = PlotWidget()
+        self.freq_plot_widget.setTitle("Frequency Domain")
+        self.freq_plot_widget.setLabel("left", "Magnitude")
+        self.freq_plot_widget.setLabel("bottom", "Frequency [Hz]")
         grid_layout.addWidget(self.freq_plot_widget)
 
         layout.addWidget(grid_frame)
@@ -279,57 +327,89 @@ class SignalMixerApp(QWidget):
         self.result_list.itemSelectionChanged.connect(self.display_selected_result)
 
         mixer_layout.addSpacerItem(
-            QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+            QtWidgets.QSpacerItem(
+                0,
+                0,
+                QtWidgets.QSizePolicy.Policy.Minimum,
+                QtWidgets.QSizePolicy.Policy.Expanding,
+            )
+        )
 
         self.setLayout(layout)
-        self.change_mode()
+        self.switch_mode()
 
+    def switch_mode(self):
+        """
+        Custom widget for displaying a signal item with a delete button.
+        Args:
+            description (str): The description of the signal item.
 
-    def change_mode(self):
-
+        Signals:
+            delete_signal (str): Signal emitted when the delete button is clicked, passing the description of the item to be deleted.
+        """
         if self.current_mode == "light":
             with open("./Styles/darkMode.qss", "r") as f:
                 app.setStyleSheet(f.read())
             self.current_mode = "dark"
-            self.change_mode_button.setIcon(QIcon("./Icons/light-mode.png"))
+            self.mode_button.setIcon(QIcon("./Icons/light-mode.png"))
         else:
             with open("./Styles/lightMode.qss", "r") as f:
                 app.setStyleSheet(f.read())
-            self.change_mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
+            self.mode_button.setIcon(QIcon("./Icons/dark-mode.png"))
             self.current_mode = "light"
 
     def activate_slider(self):
+        """
+        Activate the appropriate slider based on the selected radio button.
+        Enables one slider and disables the other, then triggers the plotting of sampling markers.
+        Args:
+            None
+
+        Returns:
+            None
+        """
         if self.radio1.isChecked():
             self.sampling_slider.setEnabled(True)
-            self.sampling_slider_2.setEnabled(False)
+            self.sampling_slider_actual.setEnabled(False)
             self.plot_sampling_markers()
         else:
-            self.sampling_slider_2.setEnabled(True)
+            self.sampling_slider_actual.setEnabled(True)
             self.sampling_slider.setEnabled(False)
             self.plot_sampling_markers()
 
-    def selected_reconstruction(self, amplitude, sampling_time, current_time):
-        method = self.comboBox.currentText()
-        if method == "Whittaker-Shannon":
-            reconstructed_signal = self.whittaker_shannon_reconstruction(amplitude, sampling_time, current_time)
-        elif method == "Linear":
-            reconstructed_signal = self.linear_interpolation(amplitude, sampling_time, current_time)
-        elif method == "Cubic":
-            reconstructed_signal = self.cubic_interpolation(amplitude, sampling_time, current_time)
-        return reconstructed_signal
+    # def selected_reconstruction(self, x, s, t):
+    #     """
+    #     Perform signal reconstruction based on the selected method.
+    #     Args:
+    #         x (np.ndarray): The amplitudes of the signal.
+    #         s (np.ndarray): The time points of the signal.
+    #         t (np.ndarray): The time points for reconstruction.
+    #     Returns:
+    #         np.ndarray: The reconstructed signal based on the selected method.
+    #     """
+    #     method = self.comboBox.currentText()
+    #     if method == "Whittaker-Shannon":
+    #         reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
+    #     elif method == "Linear":
+    #         reconstructed_signal = self.linear_interpolation(x, s, t)
+    #     elif method == "Cubic":
+    #         reconstructed_signal = self.cubic_interpolation(x, s, t)
+    #     return reconstructed_signal
 
     def get_sampling_markers(self):
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
         else:
-            factor = self.sampling_slider_2.value() / 10
+            factor = self.sampling_slider_actual.value() / 10
+            ## make the next line print only for 3 numbers after the decimal point
+            self.sampling_label_end_2.setText(f"{factor} Fmax")
+
 
         sampling_interval = 1 / (factor * self.f_max)
-        sampling_times_1 = np.arange(0, 1, sampling_interval)
-        sampling_times = np.append(sampling_times_1,1)
-
-        print(sampling_times)
-        sampling_amplitudes = np.interp(sampling_times, self.current_signal_t, self.current_signal_data)
+        sampling_times = np.arange(0, self.duration, sampling_interval)
+        sampling_amplitudes = np.interp(
+            sampling_times, self.current_signal_t, self.current_signal_data
+        )
         print("fmax", self.f_max)
         return sampling_amplitudes, sampling_times
 
@@ -338,12 +418,17 @@ class SignalMixerApp(QWidget):
 
         method = self.comboBox.currentText()
         if method == "Whittaker-Shannon":
-            reconstructed_signal = self.whittaker_shannon_reconstruction(sampling_amplitudes, sampling_times,
-                                                                         self.current_signal_t)
+            reconstructed_signal = self.whittaker_shannon_reconstruction(
+                sampling_amplitudes, sampling_times, self.current_signal_t
+            )
         elif method == "Linear":
-            reconstructed_signal = self.linear_interpolation(sampling_amplitudes, sampling_times, self.current_signal_t)
+            reconstructed_signal = self.linear_interpolation(
+                sampling_amplitudes, sampling_times, self.current_signal_t
+            )
         elif method == "Cubic":
-            reconstructed_signal = self.cubic_interpolation(sampling_amplitudes, sampling_times, self.current_signal_t)
+            reconstructed_signal = self.cubic_interpolation(
+                sampling_amplitudes, sampling_times, self.current_signal_t
+            )
 
         if self.f_max is None:
             raise AttributeError("Please select a signal first")
@@ -356,14 +441,20 @@ class SignalMixerApp(QWidget):
         self.difference_plot_widget.clear()
         self.freq_plot_widget.clear()
 
-        self.reconstruct_plot_widget.plot(self.current_signal_t, reconstructed_signal, pen='r',
-                                          name="Reconstructed Signal")
+        self.reconstruct_plot_widget.plot(
+            self.current_signal_t,
+            reconstructed_signal,
+            pen="r",
+            name="Reconstructed Signal",
+        )
 
 
 
         difference_signal = self.current_signal_data - reconstructed_signal
 
-        self.difference_plot_widget.plot(self.current_signal_t, difference_signal, pen='g', name="Difference Signal")
+        self.difference_plot_widget.plot(
+            self.current_signal_t, difference_signal, pen="g", name="Difference Signal"
+        )
 
         #################### MY NEW approach for making aliasing
 
@@ -380,8 +471,10 @@ class SignalMixerApp(QWidget):
 
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
-        fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
-        freq_data = np.fft.fftfreq(N, d=(self.current_signal_t[1] - self.current_signal_t[0]))[:N // 2]
+        fft_magnitude = np.abs(fft_values[: N // 2]) * 2 / N
+        freq_data = np.fft.fftfreq(
+            N, d=((1) * (self.current_signal_t[1] - self.current_signal_t[0]))
+        )[: N // 2]
 
         # Symmetrically extend freq_data and fft_magnitude to negative frequencies
         symmetric_freq_data = np.concatenate((-freq_data[::-1], freq_data))
@@ -470,8 +563,8 @@ class SignalMixerApp(QWidget):
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.main_plot_widget.clear()
-        duration = 1
-        current_time = np.linspace(0, duration, len(signal))
+        # duration = 1
+        current_time = np.linspace(0, self.duration, len(signal))
 
         self.main_plot_widget.plot(current_time, signal, pen='b')
 
@@ -487,7 +580,7 @@ class SignalMixerApp(QWidget):
 
         sampling_amplitudes, sampling_times = self.get_sampling_markers()
 
-        if not hasattr(self, 'marker_items'):
+        if not hasattr(self, "marker_items"):
             self.marker_items = {}
 
         signal_key = self.current_displayed_signal
@@ -495,17 +588,22 @@ class SignalMixerApp(QWidget):
         if signal_key in self.marker_items:
             self.main_plot_widget.removeItem(self.marker_items[signal_key])
 
-        marker_item = ScatterPlotItem(symbol='o', pen=None, brush='r', size=6)
+        marker_item = ScatterPlotItem(symbol="o", pen=None, brush="r", size=6)
         self.marker_items[signal_key] = marker_item
         self.main_plot_widget.addItem(marker_item)
 
-        spots = [{'pos': (time, amp)} for time, amp in zip(sampling_times, sampling_amplitudes)]
+        spots = [
+            {"pos": (time, amp)}
+            for time, amp in zip(sampling_times, sampling_amplitudes)
+        ]
         marker_item.setData(spots)
 
     def display_selected_signal(self):
+
         self.difference_plot_widget.clear()
         self.reconstruct_plot_widget.clear()
         self.freq_plot_widget.clear()
+
         selected_signal_items = self.signal_list.selectedItems()
         if selected_signal_items:
             # Clear selection in the result list
@@ -518,7 +616,10 @@ class SignalMixerApp(QWidget):
             if item_widget:
                 signal_description = item_widget.description
                 for signal in self.signals:
-                    if signal_description == f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad":
+                    if (
+                        signal_description
+                        == f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad"
+                    ):
                         wave = self.generate_wave(signal[0], signal[1], signal[2], 1)
                         self.plot_waveform(wave, signal_description)
                         break
@@ -541,10 +642,12 @@ class SignalMixerApp(QWidget):
                     if mixed_signal_description in self.mixed_signal_components:
                         # get the frequency array values from the component description
                         component_frequencies = [
-                            float(comp.split(' ')[1])
-                            for comp in self.mixed_signal_components[mixed_signal_description]
+                            float(comp.split(" ")[1])
+                            for comp in self.mixed_signal_components[
+                                mixed_signal_description
+                            ]
                         ]
-                        self.f_max = max(component_frequencies) + 0.25
+                        self.f_max = max(component_frequencies)*1.05
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -553,14 +656,18 @@ class SignalMixerApp(QWidget):
                         positive_freqs = freqs[freqs >= 0]
                         positive_magnitude = magnitude[freqs >= 0]
                         max_freq_idx = np.argmax(positive_magnitude)
-                        self.f_max = positive_freqs[max_freq_idx]  + 0.25
+                        self.f_max = positive_freqs[max_freq_idx]
 
-                    self.plot_waveform_with_markers(mixed_signal, mixed_signal_description)
+                    self.plot_waveform_with_markers(
+                        mixed_signal, mixed_signal_description
+                    )
                     self.plot_sampling_markers()
                     self.reconstruct_signal()
 
                     self.components_list.clear()
-                    components = self.mixed_signal_components.get(mixed_signal_description, [])
+                    components = self.mixed_signal_components.get(
+                        mixed_signal_description, []
+                    )
                     if components:
                         self.components_list.addItems(components)
                     else:
@@ -572,16 +679,18 @@ class SignalMixerApp(QWidget):
                     print("fmax:", self.f_max)
 
     def mix_signals(self):
-        duration = 1
-        mixed_signal = np.zeros(int(self.fs * duration))
+        # duration = 1
+        mixed_signal = np.zeros(int(self.fs))
         components = []
 
         # tracking of max frequency
         max_frequency = 0
         for frequency, amplitude, phase in self.signals:
-            wave = self.generate_wave(frequency, amplitude, phase, duration)
+            wave = self.generate_wave(frequency, amplitude, phase, self.duration)
             mixed_signal += wave
-            components.append(f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad")
+            components.append(
+                f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad"
+            )
             max_frequency = max(max_frequency, frequency)
 
         mixed_signal_description = f"Signal{len(self.result_list) + 1}"
@@ -589,10 +698,13 @@ class SignalMixerApp(QWidget):
         self.mixed_signal_components[mixed_signal_description] = components
 
         # final result of max frequency
-        self.f_max = max_frequency 
+        self.f_max = max_frequency
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(
-            lambda desc=mixed_signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
+            lambda desc=mixed_signal_description: self.delete_signal(
+                self.result_list, desc, self.result_signals
+            )
+        )
         list_item = QListWidgetItem(self.result_list)
         list_item.setSizeHint(list_item_widget.sizeHint())
         self.result_list.setItemWidget(list_item, list_item_widget)
@@ -617,9 +729,11 @@ class SignalMixerApp(QWidget):
         print("fmax", self.f_max)
 
     def generate_wave(self, frequency, amplitude, phase, duration):
-        t = np.linspace(0, duration, int(self.fs * duration), endpoint=False)
+        t = np.linspace(0, duration, int(self.fs ), endpoint=False)
         wave = amplitude * np.sin(2 * np.pi * frequency * t + phase)
-        print(f"Generated wave: freq={frequency}, amp={amplitude}, phase={phase}, duration={duration}")
+        print(
+            f"Generated wave: freq={frequency}, amp={amplitude}, phase={phase}, duration={duration}"
+        )
         return wave
 
     def add_signal(self):
@@ -633,10 +747,15 @@ class SignalMixerApp(QWidget):
 
         self.signals.append((frequency, amplitude, phase))
 
-        signal_description = f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad"
+        signal_description = (
+            f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad"
+        )
         list_item_widget = SignalListItemWidget(signal_description)
         list_item_widget.delete_signal.connect(
-            lambda desc=signal_description: self.delete_signal(self.signal_list, desc, self.signals))
+            lambda desc=signal_description: self.delete_signal(
+                self.signal_list, desc, self.signals
+            )
+        )
 
         list_item = QListWidgetItem(self.signal_list)
         list_item.setSizeHint(list_item_widget.sizeHint())
@@ -661,7 +780,9 @@ class SignalMixerApp(QWidget):
 
         if data_structure is self.signals:
             for signal in self.signals:
-                signal_description = f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad"
+                signal_description = (
+                    f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad"
+                )
                 if signal_description == description:
                     self.signals.remove(signal)
                     break
@@ -672,7 +793,9 @@ class SignalMixerApp(QWidget):
         if self.current_displayed_signal == description:
             if data_structure:
                 first_signal_description = next(iter(data_structure))
-                self.plot_waveform(data_structure[first_signal_description], first_signal_description)
+                self.plot_waveform(
+                    data_structure[first_signal_description], first_signal_description
+                )
             else:
                 self.main_plot_widget.clear()
                 self.reconstruct_plot_widget.clear()
@@ -686,12 +809,14 @@ class SignalMixerApp(QWidget):
 
     def upload_signal(self):
         file_dialog = QFileDialog()
-        file_path, _ = file_dialog.getOpenFileName(self, "Open Signal File", "", "Text Files (*.txt *.csv)")
+        file_path, _ = file_dialog.getOpenFileName(
+            self, "Open Signal File", "", "Text Files (*.txt *.csv)"
+        )
 
         if file_path:
             try:
 
-                signal_data = np.loadtxt(file_path, delimiter=',')
+                signal_data = np.loadtxt(file_path, delimiter=",")
 
                 if signal_data.shape[1] > 1:
                     signal = signal_data[:1000, 1]
@@ -701,7 +826,10 @@ class SignalMixerApp(QWidget):
                 signal_description = f"Uploaded Signal ({file_path.split('/')[-1]})"
                 list_item_widget = SignalListItemWidget(signal_description)
                 list_item_widget.delete_signal.connect(
-                    lambda desc=signal_description: self.delete_signal(self.result_list, desc, self.result_signals))
+                    lambda desc=signal_description: self.delete_signal(
+                        self.result_list, desc, self.result_signals
+                    )
+                )
 
                 list_item = QListWidgetItem(self.result_list)
                 list_item.setSizeHint(list_item_widget.sizeHint())
@@ -717,7 +845,7 @@ class SignalMixerApp(QWidget):
     def plot_waveform(self, signal, description=None):
         self.main_plot_widget.clear()
         t = np.linspace(0, 1, len(signal))
-        self.main_plot_widget.plot(t, signal, pen='b')
+        self.main_plot_widget.plot(t, signal, pen="b")
         self.main_plot_widget.setTitle("Signal Waveform")
         self.main_plot_widget.setLabel("left", "Amplitude")
         self.main_plot_widget.setLabel("bottom", "Time [s]")
