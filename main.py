@@ -78,9 +78,10 @@ class SignalMixerApp(QWidget):
         self.mixed_signal_components = {}
         self.noisy_signals = {}
         self.fs = 44100
+        self.updated_fs = 44100; # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration=10
+        self.duration=1
 
         self.initUI()
 
@@ -211,6 +212,7 @@ class SignalMixerApp(QWidget):
         result_components_layout.addLayout(result_list_V)
 
         self.components_list = QListWidget()
+        self.components_list.setObjectName("components_list")
         components_list_V = QVBoxLayout()
         components_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -260,10 +262,10 @@ class SignalMixerApp(QWidget):
         sampling_label_start_2 = QLabel("Sampling Factor: 1")
         self.sampling_label_end_2 = QLabel()
         self.sampling_slider_actual = QSlider(Qt.Orientation.Horizontal)
-        self.sampling_slider_actual.setRange(1, 40)
+        self.sampling_slider_actual.setRange(1, 100)
         self.sampling_slider_actual.setValue(1)
         self.sampling_slider_actual.setEnabled(False)
-        self.sampling_slider_actual.setTickInterval(1)
+        self.sampling_slider_actual.setTickInterval(5)
         self.sampling_slider_actual.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.sampling_slider_actual.valueChanged.connect(self.plot_sampling_markers)
         self.sampling_slider_actual.valueChanged.connect(self.reconstruct_signal)
@@ -376,32 +378,23 @@ class SignalMixerApp(QWidget):
             self.sampling_slider.setEnabled(False)
             self.plot_sampling_markers()
 
-    # def selected_reconstruction(self, x, s, t):
-    #     """
-    #     Perform signal reconstruction based on the selected method.
-    #     Args:
-    #         x (np.ndarray): The amplitudes of the signal.
-    #         s (np.ndarray): The time points of the signal.
-    #         t (np.ndarray): The time points for reconstruction.
-    #     Returns:
-    #         np.ndarray: The reconstructed signal based on the selected method.
-    #     """
-    #     method = self.comboBox.currentText()
-    #     if method == "Whittaker-Shannon":
-    #         reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
-    #     elif method == "Linear":
-    #         reconstructed_signal = self.linear_interpolation(x, s, t)
-    #     elif method == "Cubic":
-    #         reconstructed_signal = self.cubic_interpolation(x, s, t)
-    #     return reconstructed_signal
+    def selected_reconstruction(self, amplitude, sampling_time, current_time):
+        method = self.comboBox.currentText()
+        if method == "Whittaker-Shannon":
+            reconstructed_signal = self.whittaker_shannon_reconstruction(amplitude, sampling_time, current_time)
+        elif method == "Linear":
+            reconstructed_signal = self.linear_interpolation(amplitude, sampling_time, current_time)
+        elif method == "Cubic":
+            reconstructed_signal = self.cubic_interpolation(amplitude, sampling_time, current_time)
+        return reconstructed_signal
 
     def get_sampling_markers(self):
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
         else:
-            factor = self.sampling_slider_actual.value() / 10
+            factor = self.sampling_slider_actual.value()/10
             ## make the next line print only for 3 numbers after the decimal point
-            self.sampling_label_end_2.setText(f"{factor} Fmax")
+            self.sampling_label_end_2.setText(f"{factor}")
 
 
         sampling_interval = 1 / (factor * self.f_max)
@@ -447,61 +440,130 @@ class SignalMixerApp(QWidget):
             name="Reconstructed Signal",
         )
 
+
+
         difference_signal = self.current_signal_data - reconstructed_signal
 
         self.difference_plot_widget.plot(
             self.current_signal_t, difference_signal, pen="g", name="Difference Signal"
         )
 
+        #################### MY NEW approach for making aliasing
+
+        # Original FFT computation and symmetric extension
+
+        # if condition: whether slider 1 or 2 is activated
+        if self.radio1.isChecked():
+            self.updated_fs = self.sampling_slider.value() * self.f_max
+            print("Updated fs:", self.updated_fs)
+        elif self.radio2.isChecked():
+            self.updated_fs = (self.sampling_slider_actual.value() / 10) * self.f_max
+
+        print("Updated fs:", self.updated_fs)
+
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
-        fft_magnitude = np.abs(fft_values[: N // 2]) * 2 / N
-        freq_data = np.fft.fftfreq(
-            N, d=((1) * (self.current_signal_t[1] - self.current_signal_t[0]))
-        )[: N // 2]
+        fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
+        freq_data = np.fft.fftfreq(N, d=(self.current_signal_t[1] - self.current_signal_t[0]))[:N // 2]
 
-        # removing unwanted part of the signal
-        mask = freq_data < 1.5 * self.f_max
-        final_freq_data = freq_data[mask]
-        final_fft_magnitude = fft_magnitude[mask]
+        # Symmetrically extend freq_data and fft_magnitude to negative frequencies
+        symmetric_freq_data = np.concatenate((-freq_data[::-1], freq_data))
+        symmetric_fft_magnitude = np.concatenate((fft_magnitude[::-1], fft_magnitude))
 
-        self.freq_plot_widget.plot(
-            final_freq_data, final_fft_magnitude, pen="y", name="Frequency Signal"
-        )
+        # Create periodic extensions by shifting symmetric data with visual separation
+        # shifted_freq_data_pos = symmetric_freq_data + self.fs# self.updated_fs  # Shift to positive side by fs
+        # shifted_freq_data_neg = symmetric_freq_data - self.fs# self.updated_fs  # Shift to negative side by fs
 
-        # Set the view limit around the signal
-        max_freq_magnitude = max(fft_magnitude)
-        self.freq_plot_widget.setXRange(0, 1.5 * self.f_max)
+        # Slightly scale the repeated magnitudes for visibility
+        # shifted_fft_magnitude_pos = symmetric_fft_magnitude # * 0.8  # Optional: scale down for distinction
+        # shifted_fft_magnitude_neg = symmetric_fft_magnitude # * 0.8  # Optional: scale down for distinction
+
+        # Concatenate original and shifted frequency data and magnitudes
+        # final_freq_data = np.concatenate((shifted_freq_data_neg, symmetric_freq_data, shifted_freq_data_pos))
+        # final_fft_magnitude = np.concatenate((shifted_fft_magnitude_neg, symmetric_fft_magnitude, shifted_fft_magnitude_pos))
+
+        # Check final frequency data after concatenation for debugging
+        # print("Final frequency data range:", final_freq_data.min(), "to", final_freq_data.max())
+        # print("Final frequency data sample:", final_freq_data[:10])  # Show first few points for inspection
+
+        # Apply mask to limit the range to ±1.5 * f_max
+        mask = (symmetric_freq_data >= -1.5 * self.f_max) & (symmetric_freq_data <= 1.5 * self.f_max)
+        final_freq_data = symmetric_freq_data[mask]
+        final_fft_magnitude = symmetric_fft_magnitude[mask]
+
+
+        # Plot the final periodic frequency domain signal
+        self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Periodic Frequency Signal")
+        self.freq_plot_widget.plot(final_freq_data + 1.5 * self.updated_fs, final_fft_magnitude, pen='r', name="Periodic Frequency Signal")
+        self.freq_plot_widget.plot(final_freq_data - 1.5 * self.updated_fs, final_fft_magnitude, pen='r', name="Periodic Frequency Signal")
+
+        # Set the view limits
+        max_freq_magnitude = max(final_fft_magnitude)
+        # self.freq_plot_widget.setXRange(-1.5 * self.f_max, 1.5 * self.f_max)
         self.freq_plot_widget.setYRange(0, max_freq_magnitude)
 
-    def whittaker_shannon_reconstruction(self, x, s, t):
-        T = s[1] - s[0]
-        sinc_matrix = np.tile(t, (len(s), 1)) - np.tile(s[:, np.newaxis], (1, len(t)))
-        return np.sum(x[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
 
-    def linear_interpolation(self, x, s, t):
-        linear_interpolator = interp1d(s, x, kind="linear", fill_value="extrapolate")
-        return linear_interpolator(t)
+        #################### MY NEW approach for making aliasing
 
-    def cubic_interpolation(self, x, s, t):
-        cubic_interpolator = CubicSpline(s, x, bc_type="natural", extrapolate=True)
-        return cubic_interpolator(t)
+
+
+        ##################### fft that doctor didnt like
+        # N = len(reconstructed_signal)
+        # fft_values = np.fft.fft(reconstructed_signal)
+        # fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
+        # freq_data = np.fft.fftfreq(N, d=((1) * (self.current_signal_t[1] - self.current_signal_t[0])))[:N // 2]
+
+        # # removing unwanted part of the signal
+        # mask = freq_data < 1.5 * self.f_max
+        # final_freq_data = freq_data[mask]
+        # final_fft_magnitude = fft_magnitude[mask]
+
+        # self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Frequency Signal")
+
+        # # Set the view limit around the signal
+        # max_freq_magnitude = max(fft_magnitude)
+        # self.freq_plot_widget.setXRange(0, 1.5 * self.f_max)
+        # self.freq_plot_widget.setYRange(0, max_freq_magnitude)
+        ##################### fft that doctor didnt like
+
+        self.reconstruct_plot_widget.setTitle("Reconstructed Signal")
+        self.reconstruct_plot_widget.setLabel("left", "Amplitude")
+        self.reconstruct_plot_widget.setLabel("bottom", "Time [s]")
+
+        self.difference_plot_widget.setTitle("Difference Signal")
+        self.difference_plot_widget.setLabel("left", "Amplitude")
+        self.difference_plot_widget.setLabel("bottom", "Time [s]")
+
+        self.freq_plot_widget.setTitle("Frequency Domain")
+        self.freq_plot_widget.setLabel("left", "Magnitude")
+        self.freq_plot_widget.setLabel("bottom", "Frequency [Hz]")
+
+    def whittaker_shannon_reconstruction(self, amplitude, sampling_time, current_time):
+        T = sampling_time[1] - sampling_time[0]
+        sinc_matrix = np.tile(current_time, (len(sampling_time), 1)) - np.tile(sampling_time[:, np.newaxis], (1, len(current_time)))
+        return np.sum(amplitude[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
+
+    def linear_interpolation(self, amplitude, sampling_time, current_time):
+        linear_interpolator = interp1d(sampling_time, amplitude, kind='linear', fill_value="extrapolate")
+        return linear_interpolator(current_time)
+
+    def cubic_interpolation(self, amplitude, sampling_time, current_time):
+        cubic_interpolator = CubicSpline(sampling_time, amplitude)
+        return cubic_interpolator(current_time)
 
     def plot_waveform_with_markers(self, signal, description=None):
         self.main_plot_widget.clear()
         # duration = 1
-        t = np.linspace(0, self.duration, len(signal))
+        current_time = np.linspace(0, self.duration, len(signal))
 
-        self.main_plot_widget.plot(t, signal, pen="b")
+        self.main_plot_widget.plot(current_time, signal, pen='b')
 
-        self.main_plot_widget.setTitle(
-            "Signal Waveform with Adjustable Sampling Markers"
-        )
+        self.main_plot_widget.setTitle("Signal Waveform")
         self.main_plot_widget.setLabel("left", "Amplitude")
         self.main_plot_widget.setLabel("bottom", "Time [s]")
 
         self.current_displayed_signal = description
-        self.current_signal_t = t
+        self.current_signal_t = current_time
         self.current_signal_data = signal
 
     def plot_sampling_markers(self):
@@ -575,7 +637,7 @@ class SignalMixerApp(QWidget):
                                 mixed_signal_description
                             ]
                         ]
-                        self.f_max = max(component_frequencies)*1.05
+                        self.f_max = max(component_frequencies)*1.1
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -772,7 +834,7 @@ class SignalMixerApp(QWidget):
 
     def plot_waveform(self, signal, description=None):
         self.main_plot_widget.clear()
-        t = np.linspace(0, 1, len(signal))
+        t = np.linspace(0, self.duration, len(signal))
         self.main_plot_widget.plot(t, signal, pen="b")
         self.main_plot_widget.setTitle("Signal Waveform")
         self.main_plot_widget.setLabel("left", "Amplitude")

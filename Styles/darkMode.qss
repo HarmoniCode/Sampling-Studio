@@ -47,6 +47,12 @@ QLabel#signal_label{
     color:#000;
 }
 
+QListWidget#components_list{
+  border: 1px solid #2196f3;
+  border-radius: 5px;
+  color: black;
+}
+
 QFrame#input_box_frame {
   /* border: 1px solid #2196f3; */
   border-radius: 5px;
