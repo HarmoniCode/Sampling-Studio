@@ -212,7 +212,6 @@ class SignalMixerApp(QWidget):
         result_components_layout.addLayout(result_list_V)
 
         self.components_list = QListWidget()
-        self.components_list.setObjectName("components_list")
         components_list_V = QVBoxLayout()
         components_list_V.setAlignment(Qt.AlignmentFlag.AlignTop)
 
@@ -378,30 +377,35 @@ class SignalMixerApp(QWidget):
             self.sampling_slider.setEnabled(False)
             self.plot_sampling_markers()
 
-    def selected_reconstruction(self, amplitude, sampling_time, current_time):
-        method = self.comboBox.currentText()
-        if method == "Whittaker-Shannon":
-            reconstructed_signal = self.whittaker_shannon_reconstruction(amplitude, sampling_time, current_time)
-        elif method == "Linear":
-            reconstructed_signal = self.linear_interpolation(amplitude, sampling_time, current_time)
-        elif method == "Cubic":
-            reconstructed_signal = self.cubic_interpolation(amplitude, sampling_time, current_time)
-        return reconstructed_signal
+    # def selected_reconstruction(self, x, s, t):
+    #     """
+    #     Perform signal reconstruction based on the selected method.
+    #     Args:
+    #         x (np.ndarray): The amplitudes of the signal.
+    #         s (np.ndarray): The time points of the signal.
+    #         t (np.ndarray): The time points for reconstruction.
+    #     Returns:
+    #         np.ndarray: The reconstructed signal based on the selected method.
+    #     """
+    #     method = self.comboBox.currentText()
+    #     if method == "Whittaker-Shannon":
+    #         reconstructed_signal = self.whittaker_shannon_reconstruction(x, s, t)
+    #     elif method == "Linear":
+    #         reconstructed_signal = self.linear_interpolation(x, s, t)
+    #     elif method == "Cubic":
+    #         reconstructed_signal = self.cubic_interpolation(x, s, t)
+    #     return reconstructed_signal
 
     def get_sampling_markers(self):
-        sampling_interval = None
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
-            sampling_interval = 1 / (factor * self.f_max)
-
         else:
-            factor = self.sampling_slider_actual.value()
-            sampling_interval = 1 / (factor )
+            factor = self.sampling_slider_actual.value() / 10
             ## make the next line print only for 3 numbers after the decimal point
-            self.sampling_label_end_2.setText(f"{factor}")
+            self.sampling_label_end_2.setText(f"{factor} Fmax")
 
 
-        # sampling_interval = 1 / (factor * self.f_max)
+        sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, self.duration, sampling_interval)
         sampling_amplitudes = np.interp(
             sampling_times, self.current_signal_t, self.current_signal_data
@@ -461,14 +465,16 @@ class SignalMixerApp(QWidget):
             self.updated_fs = self.sampling_slider.value() * self.f_max
             print("Updated fs:", self.updated_fs)
         elif self.radio2.isChecked():
-            self.updated_fs = (self.sampling_slider_actual.value() / 10) * self.f_max
+            self.updated_fs = (self.sampling_slider_2.value() / 10) * self.f_max
 
         print("Updated fs:", self.updated_fs)
 
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
-        fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
-        freq_data = np.fft.fftfreq(N, d=(self.current_signal_t[1] - self.current_signal_t[0]))[:N // 2]
+        fft_magnitude = np.abs(fft_values[: N // 2]) * 2 / N
+        freq_data = np.fft.fftfreq(
+            N, d=((1) * (self.current_signal_t[1] - self.current_signal_t[0]))
+        )[: N // 2]
 
         # Symmetrically extend freq_data and fft_magnitude to negative frequencies
         symmetric_freq_data = np.concatenate((-freq_data[::-1], freq_data))
@@ -641,7 +647,7 @@ class SignalMixerApp(QWidget):
                                 mixed_signal_description
                             ]
                         ]
-                        self.f_max = max(component_frequencies)*1.1
+                        self.f_max = max(component_frequencies)*1.05
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -838,7 +844,7 @@ class SignalMixerApp(QWidget):
 
     def plot_waveform(self, signal, description=None):
         self.main_plot_widget.clear()
-        t = np.linspace(0, self.duration, len(signal))
+        t = np.linspace(0, 1, len(signal))
         self.main_plot_widget.plot(t, signal, pen="b")
         self.main_plot_widget.setTitle("Signal Waveform")
         self.main_plot_widget.setLabel("left", "Amplitude")
