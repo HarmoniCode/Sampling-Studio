@@ -395,10 +395,9 @@ class SignalMixerApp(QWidget):
             sampling_interval = 1 / (factor * self.f_max)
 
         else:
-            factor = self.sampling_slider_actual.value()
+            factor = self.sampling_slider_actual.value()*1.1
             sampling_interval = 1 / (factor )
-            ## make the next line print only for 3 numbers after the decimal point
-            self.sampling_label_end_2.setText(f"{factor}")
+            self.sampling_label_end_2.setText(f"{factor/1.1}")
 
 
         # sampling_interval = 1 / (factor * self.f_max)
@@ -437,6 +436,9 @@ class SignalMixerApp(QWidget):
         self.difference_plot_widget.clear()
         self.freq_plot_widget.clear()
 
+        self.main_plot_widget.setYLink(self.reconstruct_plot_widget)
+        self.reconstruct_plot_widget.setYLink(self.difference_plot_widget)
+
         self.reconstruct_plot_widget.plot(
             self.current_signal_t,
             reconstructed_signal,
@@ -461,7 +463,7 @@ class SignalMixerApp(QWidget):
             self.updated_fs = self.sampling_slider.value() * self.f_max
             print("Updated fs:", self.updated_fs)
         elif self.radio2.isChecked():
-            self.updated_fs = (self.sampling_slider_actual.value() / 10) * self.f_max
+            self.updated_fs = round(self.sampling_slider_actual.value() * 1.1, 2)
 
         print("Updated fs:", self.updated_fs)
 
