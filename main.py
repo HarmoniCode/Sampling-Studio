@@ -84,6 +84,7 @@ class SignalMixerApp(QWidget):
         self.duration=10
 
         self.initUI()
+        self.add_default_signal() 
 
     def initUI(self):
         layout = QHBoxLayout()
@@ -142,10 +143,10 @@ class SignalMixerApp(QWidget):
         add_button.setObjectName("add_button")
         add_button.setMinimumHeight(35)
         add_button.clicked.connect(self.add_signal)
-        mix_button = QPushButton("Mix Signals")
-        mix_button.setObjectName("mix_button")
-        mix_button.setMinimumHeight(35)
-        mix_button.clicked.connect(self.mix_signals)
+        self.mix_button = QPushButton("Mix Signals")
+        self.mix_button.setObjectName("mix_button")
+        self.mix_button.setMinimumHeight(35)
+        self.mix_button.clicked.connect(self.mix_signals)
 
         upload_layout = QHBoxLayout()
         upload_button = QPushButton("Upload Signal")
@@ -160,7 +161,7 @@ class SignalMixerApp(QWidget):
         self.mode_button.clicked.connect(self.switch_mode)
 
         add_mix_control_layout.addWidget(add_button)
-        add_mix_control_layout.addWidget(mix_button)
+        add_mix_control_layout.addWidget(self.mix_button)
 
         upload_layout.addWidget(upload_button)
         upload_layout.addSpacerItem(
@@ -339,6 +340,34 @@ class SignalMixerApp(QWidget):
         self.setLayout(layout)
         self.switch_mode()
 
+    def add_default_signal(self):
+        frequencies = [10, 15, 20]
+        amplitudes = [5, 5, 10]
+        phases = [0, 0, 1.57]
+        duration = self.duration 
+
+        for frequency, amplitude, phase in zip(frequencies, amplitudes, phases):
+            wave = self.generate_wave(frequency, amplitude, phase, duration)
+
+            signal_description = f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad"
+            self.signals.append((frequency, amplitude, phase))
+            self.plot_waveform(wave, signal_description)
+
+            list_item_widget = SignalListItemWidget(signal_description)
+            list_item_widget.delete_signal.connect(
+                lambda desc=signal_description: self.delete_signal(
+                    self.signal_list, desc, self.signals
+                )
+            )
+            list_item = QListWidgetItem(self.signal_list)
+            list_item.setSizeHint(list_item_widget.sizeHint())
+            self.signal_list.setItemWidget(list_item, list_item_widget)
+
+        if self.signal_list.count() > 0:
+            self.signal_list.setCurrentRow(0)
+
+        self.mix_button.click()
+
     def switch_mode(self):
         """
         Custom widget for displaying a signal item with a delete button.
@@ -461,11 +490,11 @@ class SignalMixerApp(QWidget):
         # if condition: whether slider 1 or 2 is activated
         if self.radio1.isChecked():
             self.updated_fs = self.sampling_slider.value() * self.f_max
-            print("Updated fs:", self.updated_fs)
+            print(f"Updated fs: {self.updated_fs:.2f}")
         elif self.radio2.isChecked():
             self.updated_fs = round(self.sampling_slider_actual.value() * 1.1, 2)
 
-        print("Updated fs:", self.updated_fs)
+        print(f"Updated fs: {self.updated_fs:.2f}")
 
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
