@@ -78,11 +78,11 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 44100
+        self.fs = 1000
         self.updated_fs = 44100;  # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration = 1
+        self.duration=10
 
         self.initUI()
 
@@ -399,6 +399,7 @@ class SignalMixerApp(QWidget):
         return reconstructed_signal
 
     def get_sampling_markers(self):
+        sampling_interval = None
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
             sampling_interval = 1 / (factor * self.f_max)
@@ -409,7 +410,7 @@ class SignalMixerApp(QWidget):
                 self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
             factor = self.sampling_slider_actual.value()
             self.sampling_label_end_2.setText(f"{factor}")
-            sampling_interval = 2 / (factor * self.f_max)
+            sampling_interval = 1 / (factor * self.f_max)
 
         sampling_times = np.arange(0, self.duration, sampling_interval)
         sampling_amplitudes = np.interp(
@@ -445,6 +446,9 @@ class SignalMixerApp(QWidget):
         self.reconstruct_plot_widget.clear()
         self.difference_plot_widget.clear()
         self.freq_plot_widget.clear()
+
+        self.main_plot_widget.setYLink(self.reconstruct_plot_widget)
+        self.reconstruct_plot_widget.setYLink(self.difference_plot_widget)
 
         self.reconstruct_plot_widget.plot(
             self.current_signal_t,
