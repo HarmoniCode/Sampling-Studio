@@ -81,7 +81,7 @@ class SignalMixerApp(QWidget):
         self.updated_fs = 44100; # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration=1
+        self.duration=10
 
         self.initUI()
 
@@ -262,10 +262,10 @@ class SignalMixerApp(QWidget):
         sampling_label_start_2 = QLabel("Sampling Factor: 1")
         self.sampling_label_end_2 = QLabel()
         self.sampling_slider_actual = QSlider(Qt.Orientation.Horizontal)
-        self.sampling_slider_actual.setRange(1, 100)
+        self.sampling_slider_actual.setRange(1, 40)
         self.sampling_slider_actual.setValue(1)
         self.sampling_slider_actual.setEnabled(False)
-        self.sampling_slider_actual.setTickInterval(5)
+        self.sampling_slider_actual.setTickInterval(1)
         self.sampling_slider_actual.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.sampling_slider_actual.valueChanged.connect(self.plot_sampling_markers)
         self.sampling_slider_actual.valueChanged.connect(self.reconstruct_signal)
@@ -389,15 +389,19 @@ class SignalMixerApp(QWidget):
         return reconstructed_signal
 
     def get_sampling_markers(self):
+        sampling_interval = None
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
+            sampling_interval = 1 / (factor * self.f_max)
+
         else:
-            factor = self.sampling_slider_actual.value()/10
+            factor = self.sampling_slider_actual.value()
+            sampling_interval = 1 / (factor )
             ## make the next line print only for 3 numbers after the decimal point
             self.sampling_label_end_2.setText(f"{factor}")
 
 
-        sampling_interval = 1 / (factor * self.f_max)
+        # sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, self.duration, sampling_interval)
         sampling_amplitudes = np.interp(
             sampling_times, self.current_signal_t, self.current_signal_data
