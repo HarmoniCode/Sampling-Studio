@@ -270,7 +270,7 @@ class SignalMixerApp(QWidget):
 
         self.sampling_slider_actual.setValue(1)
         self.sampling_slider_actual.setEnabled(False)
-        self.sampling_slider_actual.setTickInterval(5)
+        self.sampling_slider_actual.setTickInterval(1)
         self.sampling_slider_actual.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.sampling_slider_actual.valueChanged.connect(self.plot_sampling_markers)
         self.sampling_slider_actual.valueChanged.connect(self.reconstruct_signal)
@@ -401,17 +401,16 @@ class SignalMixerApp(QWidget):
     def get_sampling_markers(self):
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
+            sampling_interval = 1 / (factor * self.f_max)
         else:
             if self.f_max is None:
                 self.sampling_slider_actual.setRange(1, 400)
             else:
                 self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
-
             factor = self.sampling_slider_actual.value()
-            ## make the next line print only for 3 numbers after the decimal point
             self.sampling_label_end_2.setText(f"{factor}")
+            sampling_interval = 2 / (factor * self.f_max)
 
-        sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, self.duration, sampling_interval)
         sampling_amplitudes = np.interp(
             sampling_times, self.current_signal_t, self.current_signal_data
@@ -471,71 +470,28 @@ class SignalMixerApp(QWidget):
                 self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
 
             self.updated_fs = (self.sampling_slider_actual.value())
-
-        print("Updated fs:", self.updated_fs)
+            print("Updated fs:", self.updated_fs)
 
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
         fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
         freq_data = np.fft.fftfreq(N, d=(self.current_signal_t[1] - self.current_signal_t[0]))[:N // 2]
-
-        # Symmetrically extend freq_data and fft_magnitude to negative frequencies
         symmetric_freq_data = np.concatenate((-freq_data[::-1], freq_data))
         symmetric_fft_magnitude = np.concatenate((fft_magnitude[::-1], fft_magnitude))
 
-        # Create periodic extensions by shifting symmetric data with visual separation
-        # shifted_freq_data_pos = symmetric_freq_data + self.fs# self.updated_fs  # Shift to positive side by fs
-        # shifted_freq_data_neg = symmetric_freq_data - self.fs# self.updated_fs  # Shift to negative side by fs
-
-        # Slightly scale the repeated magnitudes for visibility
-        # shifted_fft_magnitude_pos = symmetric_fft_magnitude # * 0.8  # Optional: scale down for distinction
-        # shifted_fft_magnitude_neg = symmetric_fft_magnitude # * 0.8  # Optional: scale down for distinction
-
-        # Concatenate original and shifted frequency data and magnitudes
-        # final_freq_data = np.concatenate((shifted_freq_data_neg, symmetric_freq_data, shifted_freq_data_pos))
-        # final_fft_magnitude = np.concatenate((shifted_fft_magnitude_neg, symmetric_fft_magnitude, shifted_fft_magnitude_pos))
-
-        # Check final frequency data after concatenation for debugging
-        # print("Final frequency data range:", final_freq_data.min(), "to", final_freq_data.max())
-        # print("Final frequency data sample:", final_freq_data[:10])  # Show first few points for inspection
-
-        # Apply mask to limit the range to ±1.5 * f_max
-        mask = (symmetric_freq_data >= -1.5 * self.f_max) & (symmetric_freq_data <= 1.5 * self.f_max)
+        mask = (symmetric_freq_data >= -6 * self.f_max) & (symmetric_freq_data <= 6 * self.f_max)
         final_freq_data = symmetric_freq_data[mask]
         final_fft_magnitude = symmetric_fft_magnitude[mask]
 
         # Plot the final periodic frequency domain signal
         self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Periodic Frequency Signal")
-        self.freq_plot_widget.plot(final_freq_data + 1.5 * self.updated_fs, final_fft_magnitude, pen='r',
+        self.freq_plot_widget.plot(final_freq_data + 6 * self.updated_fs, final_fft_magnitude, pen='r',
                                    name="Periodic Frequency Signal")
-        self.freq_plot_widget.plot(final_freq_data - 1.5 * self.updated_fs, final_fft_magnitude, pen='r',
+        self.freq_plot_widget.plot(final_freq_data - 6 * self.updated_fs, final_fft_magnitude, pen='r',
                                    name="Periodic Frequency Signal")
-
-        # Set the view limits
         max_freq_magnitude = max(final_fft_magnitude)
-        # self.freq_plot_widget.setXRange(-1.5 * self.f_max, 1.5 * self.f_max)
+
         self.freq_plot_widget.setYRange(0, max_freq_magnitude)
-
-        #################### MY NEW approach for making aliasing
-
-        ##################### fft that doctor didnt like
-        # N = len(reconstructed_signal)
-        # fft_values = np.fft.fft(reconstructed_signal)
-        # fft_magnitude = np.abs(fft_values[:N // 2]) * 2 / N
-        # freq_data = np.fft.fftfreq(N, d=((1) * (self.current_signal_t[1] - self.current_signal_t[0])))[:N // 2]
-
-        # # removing unwanted part of the signal
-        # mask = freq_data < 1.5 * self.f_max
-        # final_freq_data = freq_data[mask]
-        # final_fft_magnitude = fft_magnitude[mask]
-
-        # self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Frequency Signal")
-
-        # # Set the view limit around the signal
-        # max_freq_magnitude = max(fft_magnitude)
-        # self.freq_plot_widget.setXRange(0, 1.5 * self.f_max)
-        # self.freq_plot_widget.setYRange(0, max_freq_magnitude)
-        ##################### fft that doctor didnt like
 
         self.reconstruct_plot_widget.setTitle("Reconstructed Signal")
         self.reconstruct_plot_widget.setLabel("left", "Amplitude")
