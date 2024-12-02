@@ -68,6 +68,7 @@ class SignalListItemWidget(QFrame):
 class SignalMixerApp(QWidget):
     def __init__(self):
         super().__init__()
+        self.signal = None
         self.setObjectName("mainWindow")
         self.setWindowTitle("Signal Mixer")
         self.setGeometry(100, 100, 1500, 600)
@@ -78,10 +79,10 @@ class SignalMixerApp(QWidget):
         self.mixed_signal_components = {}
         self.noisy_signals = {}
         self.fs = 44100
-        self.updated_fs = 44100; # to be updated, and used in freq graph
+        self.updated_fs = 44100;  # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration=1
+        self.duration = 1
 
         self.initUI()
 
@@ -255,14 +256,18 @@ class SignalMixerApp(QWidget):
         sampling_layout.addWidget(self.sampling_slider)
         sampling_layout.addWidget(sampling_label_end)
         slider_layout.addWidget(self.radio1)
-        slider_layout.addWidget(self.radio2)
         slider_layout.addLayout(sampling_layout)
+        slider_layout.addWidget(self.radio2)
 
         sampling_layout_2 = QHBoxLayout()
         sampling_label_start_2 = QLabel("Sampling Factor: 1")
         self.sampling_label_end_2 = QLabel()
         self.sampling_slider_actual = QSlider(Qt.Orientation.Horizontal)
-        self.sampling_slider_actual.setRange(1, 100)
+        if self.f_max is None:
+            self.sampling_slider_actual.setRange(1, 400)
+        else:
+            self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
+
         self.sampling_slider_actual.setValue(1)
         self.sampling_slider_actual.setEnabled(False)
         self.sampling_slider_actual.setTickInterval(5)
@@ -374,6 +379,11 @@ class SignalMixerApp(QWidget):
             self.sampling_slider_actual.setEnabled(False)
             self.plot_sampling_markers()
         else:
+            if self.f_max is None:
+                self.sampling_slider_actual.setRange(1, 400)
+            else:
+                self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
+
             self.sampling_slider_actual.setEnabled(True)
             self.sampling_slider.setEnabled(False)
             self.plot_sampling_markers()
@@ -392,10 +402,14 @@ class SignalMixerApp(QWidget):
         if self.radio1.isChecked():
             factor = self.sampling_slider.value()
         else:
-            factor = self.sampling_slider_actual.value()/10
+            if self.f_max is None:
+                self.sampling_slider_actual.setRange(1, 400)
+            else:
+                self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
+
+            factor = self.sampling_slider_actual.value()
             ## make the next line print only for 3 numbers after the decimal point
             self.sampling_label_end_2.setText(f"{factor}")
-
 
         sampling_interval = 1 / (factor * self.f_max)
         sampling_times = np.arange(0, self.duration, sampling_interval)
@@ -439,25 +453,24 @@ class SignalMixerApp(QWidget):
             pen="r",
             name="Reconstructed Signal",
         )
-
-
-
-        difference_signal = self.current_signal_data - reconstructed_signal
+        if self.signal is not None and self.signal.any():
+            difference_signal = self.signal - reconstructed_signal
+        else:
+            difference_signal = self.current_signal_data - reconstructed_signal
 
         self.difference_plot_widget.plot(
             self.current_signal_t, difference_signal, pen="g", name="Difference Signal"
         )
-
-        #################### MY NEW approach for making aliasing
-
-        # Original FFT computation and symmetric extension
-
-        # if condition: whether slider 1 or 2 is activated
         if self.radio1.isChecked():
             self.updated_fs = self.sampling_slider.value() * self.f_max
             print("Updated fs:", self.updated_fs)
         elif self.radio2.isChecked():
-            self.updated_fs = (self.sampling_slider_actual.value() / 10) * self.f_max
+            if self.f_max is None:
+                self.sampling_slider_actual.setRange(1, 400)
+            else:
+                self.sampling_slider_actual.setRange(1, int(4 * self.f_max / 1.1))
+
+            self.updated_fs = (self.sampling_slider_actual.value())
 
         print("Updated fs:", self.updated_fs)
 
@@ -491,21 +504,19 @@ class SignalMixerApp(QWidget):
         final_freq_data = symmetric_freq_data[mask]
         final_fft_magnitude = symmetric_fft_magnitude[mask]
 
-
         # Plot the final periodic frequency domain signal
         self.freq_plot_widget.plot(final_freq_data, final_fft_magnitude, pen='y', name="Periodic Frequency Signal")
-        self.freq_plot_widget.plot(final_freq_data + 1.5 * self.updated_fs, final_fft_magnitude, pen='r', name="Periodic Frequency Signal")
-        self.freq_plot_widget.plot(final_freq_data - 1.5 * self.updated_fs, final_fft_magnitude, pen='r', name="Periodic Frequency Signal")
+        self.freq_plot_widget.plot(final_freq_data + 1.5 * self.updated_fs, final_fft_magnitude, pen='r',
+                                   name="Periodic Frequency Signal")
+        self.freq_plot_widget.plot(final_freq_data - 1.5 * self.updated_fs, final_fft_magnitude, pen='r',
+                                   name="Periodic Frequency Signal")
 
         # Set the view limits
         max_freq_magnitude = max(final_fft_magnitude)
         # self.freq_plot_widget.setXRange(-1.5 * self.f_max, 1.5 * self.f_max)
         self.freq_plot_widget.setYRange(0, max_freq_magnitude)
 
-
         #################### MY NEW approach for making aliasing
-
-
 
         ##################### fft that doctor didnt like
         # N = len(reconstructed_signal)
@@ -540,7 +551,8 @@ class SignalMixerApp(QWidget):
 
     def whittaker_shannon_reconstruction(self, amplitude, sampling_time, current_time):
         T = sampling_time[1] - sampling_time[0]
-        sinc_matrix = np.tile(current_time, (len(sampling_time), 1)) - np.tile(sampling_time[:, np.newaxis], (1, len(current_time)))
+        sinc_matrix = np.tile(current_time, (len(sampling_time), 1)) - np.tile(sampling_time[:, np.newaxis],
+                                                                               (1, len(current_time)))
         return np.sum(amplitude[:, np.newaxis] * np.sinc((sinc_matrix / T)), axis=0)
 
     def linear_interpolation(self, amplitude, sampling_time, current_time):
@@ -607,8 +619,8 @@ class SignalMixerApp(QWidget):
                 signal_description = item_widget.description
                 for signal in self.signals:
                     if (
-                        signal_description
-                        == f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad"
+                            signal_description
+                            == f"Freq: {signal[0]} Hz, Amp: {signal[1]}, Phase: {signal[2]} rad"
                     ):
                         wave = self.generate_wave(signal[0], signal[1], signal[2], 1)
                         self.plot_waveform(wave, signal_description)
@@ -637,7 +649,7 @@ class SignalMixerApp(QWidget):
                                 mixed_signal_description
                             ]
                         ]
-                        self.f_max = max(component_frequencies)*1.1
+                        self.f_max = max(component_frequencies) * 1.1
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -719,7 +731,7 @@ class SignalMixerApp(QWidget):
         print("fmax", self.f_max)
 
     def generate_wave(self, frequency, amplitude, phase, duration):
-        t = np.linspace(0, duration, int(self.fs ), endpoint=False)
+        t = np.linspace(0, duration, int(self.fs), endpoint=False)
         wave = amplitude * np.sin(2 * np.pi * frequency * t + phase)
         print(
             f"Generated wave: freq={frequency}, amp={amplitude}, phase={phase}, duration={duration}"
@@ -852,15 +864,15 @@ class SignalMixerApp(QWidget):
                 mixed_signal_description = item_widget.description
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
 
-                signal = mixed_signal
+                self.signal = mixed_signal
                 signal_description = mixed_signal_description
                 if snr_value:
-                    signal_power_dB = 10 * np.log10(np.mean(np.square(signal)))
+                    signal_power_dB = 10 * np.log10(np.mean(np.square(self.signal)))
                     noise_power = signal_power_dB / (10 ** (snr_value / 10))
-                    noise = noise_power * np.random.normal(size=len(signal))
-                    noisy_signal = signal + noise
+                    noise = noise_power * np.random.normal(size=len(self.signal))
+                    noisy_signal = self.signal + noise
                 else:
-                    noisy_signal = signal
+                    noisy_signal = self.signal
                 self.noisy_signals[signal_description] = noisy_signal
                 self.plot_waveform_with_markers(noisy_signal, signal_description)
 
