@@ -78,13 +78,14 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 1000
-        self.updated_fs = 44100;  # to be updated, and used in freq graph
+        self.fs = 44100
+        self.updated_fs = 44100  # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration=10
+        self.duration = 10
 
         self.initUI()
+        self.add_default_signal()
 
     def initUI(self):
         layout = QHBoxLayout()
@@ -143,10 +144,10 @@ class SignalMixerApp(QWidget):
         add_button.setObjectName("add_button")
         add_button.setMinimumHeight(35)
         add_button.clicked.connect(self.add_signal)
-        mix_button = QPushButton("Mix Signals")
-        mix_button.setObjectName("mix_button")
-        mix_button.setMinimumHeight(35)
-        mix_button.clicked.connect(self.mix_signals)
+        self.mix_button = QPushButton("Mix Signals")
+        self.mix_button.setObjectName("mix_button")
+        self.mix_button.setMinimumHeight(35)
+        self.mix_button.clicked.connect(self.mix_signals)
 
         upload_layout = QHBoxLayout()
         upload_button = QPushButton("Upload Signal")
@@ -161,7 +162,7 @@ class SignalMixerApp(QWidget):
         self.mode_button.clicked.connect(self.switch_mode)
 
         add_mix_control_layout.addWidget(add_button)
-        add_mix_control_layout.addWidget(mix_button)
+        add_mix_control_layout.addWidget(self.mix_button)
 
         upload_layout.addWidget(upload_button)
         upload_layout.addSpacerItem(
@@ -272,8 +273,8 @@ class SignalMixerApp(QWidget):
         self.sampling_slider_actual.setEnabled(False)
         self.sampling_slider_actual.setTickInterval(1)
         self.sampling_slider_actual.setTickPosition(QSlider.TickPosition.TicksBelow)
-        self.sampling_slider_actual.valueChanged.connect(self.plot_sampling_markers)
-        self.sampling_slider_actual.valueChanged.connect(self.reconstruct_signal)
+        self.sampling_slider_actual.sliderReleased.connect(self.plot_sampling_markers)
+        self.sampling_slider_actual.sliderReleased.connect(self.reconstruct_signal)
         sampling_layout_2.addWidget(sampling_label_start_2)
         sampling_layout_2.addWidget(self.sampling_slider_actual)
         sampling_layout_2.addWidget(self.sampling_label_end_2)
@@ -344,15 +345,36 @@ class SignalMixerApp(QWidget):
         self.setLayout(layout)
         self.switch_mode()
 
-    def switch_mode(self):
-        """
-        Custom widget for displaying a signal item with a delete button.
-        Args:
-            description (str): The description of the signal item.
+    def add_default_signal(self):
+        frequencies = [10, 15, 20]
+        amplitudes = [5, 5, 10]
+        phases = [0, 0, 1.57]
+        duration = 10
 
-        Signals:
-            delete_signal (str): Signal emitted when the delete button is clicked, passing the description of the item to be deleted.
-        """
+        for frequency, amplitude, phase in zip(frequencies, amplitudes, phases):
+            wave = self.generate_wave(frequency, amplitude, phase, duration)
+
+            signal_description = f"Freq: {frequency} Hz, Amp: {amplitude}, Phase: {phase} rad"
+            self.signals.append((frequency, amplitude, phase))
+            self.plot_waveform(wave, signal_description)
+
+            list_item_widget = SignalListItemWidget(signal_description)
+            list_item_widget.delete_signal.connect(
+                lambda desc=signal_description: self.delete_signal(
+                    self.signal_list, desc, self.signals
+                )
+            )
+            list_item = QListWidgetItem(self.signal_list)
+            list_item.setSizeHint(list_item_widget.sizeHint())
+            self.signal_list.setItemWidget(list_item, list_item_widget)
+
+        if self.signal_list.count() > 0:
+            self.signal_list.setCurrentRow(0)
+
+        self.mix_button.click()
+
+
+    def switch_mode(self):
         if self.current_mode == "light":
             with open("./Styles/darkMode.qss", "r") as f:
                 app.setStyleSheet(f.read())
@@ -365,15 +387,6 @@ class SignalMixerApp(QWidget):
             self.current_mode = "light"
 
     def activate_slider(self):
-        """
-        Activate the appropriate slider based on the selected radio button.
-        Enables one slider and disables the other, then triggers the plotting of sampling markers.
-        Args:
-            None
-
-        Returns:
-            None
-        """
         if self.radio1.isChecked():
             self.sampling_slider.setEnabled(True)
             self.sampling_slider_actual.setEnabled(False)
@@ -449,7 +462,6 @@ class SignalMixerApp(QWidget):
 
         self.main_plot_widget.setYLink(self.reconstruct_plot_widget)
         self.reconstruct_plot_widget.setYLink(self.difference_plot_widget)
-
         self.reconstruct_plot_widget.plot(
             self.current_signal_t,
             reconstructed_signal,
@@ -648,6 +660,8 @@ class SignalMixerApp(QWidget):
         # tracking of max frequency
         max_frequency = 0
         for frequency, amplitude, phase in self.signals:
+            if frequency < 5:
+                self.duration = 50
             wave = self.generate_wave(frequency, amplitude, phase, self.duration)
             mixed_signal += wave
             components.append(
@@ -658,8 +672,6 @@ class SignalMixerApp(QWidget):
         mixed_signal_description = f"Signal{len(self.result_list) + 1}"
         self.result_signals[mixed_signal_description] = mixed_signal
         self.mixed_signal_components[mixed_signal_description] = components
-
-        # final result of max frequency
         self.f_max = max_frequency
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(
