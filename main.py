@@ -359,16 +359,11 @@ class SignalMixerApp(QWidget):
                 "phases":[0, 0, 1.57]
             },
             "signal 2" :{
-                "frequencies":[4, 8],
-                "amplitudes":[5, 5],
-                "phases":[0, 0]
-            },
-            "signal 3" :{
                 "frequencies":[1, 6],
                 "amplitudes":[1, 1],
                 "phases":[0, 3.14]
             },
-            "signal 4" :{
+            "signal 3" :{
                 "frequencies":[1, 6],
                 "amplitudes":[2, 3],
                 "phases":[0, 0]
