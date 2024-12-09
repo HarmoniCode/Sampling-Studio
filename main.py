@@ -79,14 +79,13 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 44100
-        self.updated_fs = 44100  # to be updated, and used in freq graph
+        self.fs = 22050
+        self.updated_fs = 22050  # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration = 5
+        self.duration = 10
 
         self.initUI()
-        self.add_default_signal()
 
     def initUI(self):
         layout = QHBoxLayout()
@@ -264,7 +263,7 @@ class SignalMixerApp(QWidget):
         sampling_label_start_2 = QLabel("Sampling Frequency: 1")
         self.sampling_label_end_2 = QLabel()
         self.sampling_slider_actual = QSlider(Qt.Orientation.Horizontal)
-        self.sampling_slider_actual.setRange(1, 40)
+        self.sampling_slider_actual.setRange(1, 400)
         self.sampling_slider_actual.setValue(1)
         self.sampling_slider_actual.setEnabled(False)
         self.sampling_slider_actual.setTickInterval(1)
@@ -413,7 +412,7 @@ class SignalMixerApp(QWidget):
             if self.f_max is None:
                 self.sampling_slider_actual.setRange(1, 400)
             else:
-                self.sampling_slider_actual.setRange(1, int(8 * self.f_max / 1.1))
+                self.sampling_slider_actual.setRange(1, int(8 * self.f_max))
 
             self.sampling_slider_actual.setEnabled(True)
             self.sampling_slider.setEnabled(False)
@@ -439,8 +438,8 @@ class SignalMixerApp(QWidget):
             if self.f_max is None:
                 self.sampling_slider_actual.setRange(1, 400)
             else:
-                self.sampling_slider_actual.setRange(1, int(8 * self.f_max / 1.1))
-            factor = self.sampling_slider_actual.value() * 1.1
+                self.sampling_slider_actual.setRange(1, int(8 * self.f_max))
+            factor = self.sampling_slider_actual.value() 
             self.sampling_label_end_2.setText(f"{self.sampling_slider_actual.value()}")
             sampling_interval = 1 / factor
             print("2", sampling_interval)
