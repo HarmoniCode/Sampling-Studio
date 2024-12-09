@@ -84,7 +84,6 @@ class SignalMixerApp(QWidget):
         self.duration=10
 
         self.initUI()
-        self.add_default_signal() 
 
     def initUI(self):
         layout = QHBoxLayout()
@@ -337,14 +336,36 @@ class SignalMixerApp(QWidget):
             )
         )
 
+
+        defult_signals ={
+            "signal 1" :{
+                "frequencies":[10, 15, 20],
+                "amplitudes":[5, 5, 10],
+                "phases":[0, 0, 1.57]
+            },
+            "signal 2" :{
+                "frequencies":[4, 8],
+                "amplitudes":[5, 5],
+                "phases":[0, 0]
+            }
+        }
+        
+
+        for signal in defult_signals.values():
+            self.add_default_signal(signal["frequencies"], signal["amplitudes"], signal["phases"])
+
         self.setLayout(layout)
         self.switch_mode()
 
-    def add_default_signal(self):
-        frequencies = [10, 15, 20]
-        amplitudes = [5, 5, 10]
-        phases = [0, 0, 1.57]
-        duration = self.duration 
+    def add_default_signal(self, frequencies, amplitudes, phases):
+        '''
+        Add a default signal to the signal list and plot the waveform.
+        Args:
+            frequencies (list): List of signal frequencies.
+            amplitudes (list): List of signal amplitudes.
+            phases (list): List of signal phases.
+        '''
+        duration = self.duration
 
         for frequency, amplitude, phase in zip(frequencies, amplitudes, phases):
             wave = self.generate_wave(frequency, amplitude, phase, duration)
@@ -424,9 +445,9 @@ class SignalMixerApp(QWidget):
             sampling_interval = 1 / (factor * self.f_max)
 
         else:
-            factor = self.sampling_slider_actual.value()*1.1
+            factor = self.sampling_slider_actual.value()
             sampling_interval = 1 / (factor )
-            self.sampling_label_end_2.setText(f"{factor/1.1}")
+            self.sampling_label_end_2.setText(f"{factor}")
 
 
         # sampling_interval = 1 / (factor * self.f_max)
@@ -492,7 +513,7 @@ class SignalMixerApp(QWidget):
             self.updated_fs = self.sampling_slider.value() * self.f_max
             print(f"Updated fs: {self.updated_fs:.2f}")
         elif self.radio2.isChecked():
-            self.updated_fs = round(self.sampling_slider_actual.value() * 1.1, 2)
+            self.updated_fs = round(self.sampling_slider_actual.value() , 2)
 
         print(f"Updated fs: {self.updated_fs:.2f}")
 
@@ -672,7 +693,7 @@ class SignalMixerApp(QWidget):
                                 mixed_signal_description
                             ]
                         ]
-                        self.f_max = max(component_frequencies)*1.1
+                        self.f_max = max(component_frequencies)*1.05
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -878,6 +899,9 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = description
 
     def add_noise(self):
+        '''
+        Add noise to the selected signal based on the SNR value.
+        '''
         snr_value = self.snr_slider.value()
         selected_items = self.result_list.selectedItems()
         if selected_items:
@@ -887,17 +911,24 @@ class SignalMixerApp(QWidget):
                 mixed_signal_description = item_widget.description
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
 
-                signal = mixed_signal
-                signal_description = mixed_signal_description
-                if snr_value:
-                    signal_power_dB = 10 * np.log10(np.mean(np.square(signal)))
-                    noise_power = signal_power_dB / (10 ** (snr_value / 10))
-                    noise = noise_power * np.random.normal(size=len(signal))
-                    noisy_signal = signal + noise
-                else:
-                    noisy_signal = signal
-                self.noisy_signals[signal_description] = noisy_signal
-                self.plot_waveform_with_markers(noisy_signal, signal_description)
+                if mixed_signal is not None:
+                    signal = mixed_signal
+                    signal_description = mixed_signal_description
+
+                    if snr_value > 0:  # Avoid divide by zero
+                        # Compute signal and noise power
+                        signal_power = np.mean(np.square(signal))
+                        noise_power = signal_power / (10 ** (snr_value / 10))*10
+                        
+                        # Generate noise
+                        noise = np.sqrt(noise_power) * np.random.normal(size=len(signal))
+                        noisy_signal = signal + noise
+                    else:
+                        noisy_signal = signal  # No noise if SNR is 0
+
+                    # Update the noisy signals and plot
+                    self.noisy_signals[signal_description] = noisy_signal
+                    self.plot_waveform_with_markers(noisy_signal, signal_description)
 
     def update_snr_value(self, value):
         self.snr_value.setText("SNR Level : " + str(value))
