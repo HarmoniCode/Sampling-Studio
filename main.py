@@ -79,11 +79,11 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 22050
-        self.updated_fs = 22050  # to be updated, and used in freq graph
+        self.fs = 10000
+        self.updated_fs = 44100  # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
-        self.duration = 10
+        self.duration = 1
 
         self.initUI()
 
@@ -242,7 +242,7 @@ class SignalMixerApp(QWidget):
         self.radio1.toggled.connect(self.activate_slider)
 
         sampling_layout = QHBoxLayout()
-        sampling_label_start = QLabel("Actual Frequency: Fmax")
+        sampling_label_start = QLabel("Normalized Frequency: Fmax")
         sampling_label_end = QLabel(" 4 Fmax")
         self.sampling_slider = QSlider(Qt.Orientation.Horizontal)
 
@@ -263,7 +263,11 @@ class SignalMixerApp(QWidget):
         sampling_label_start_2 = QLabel("Sampling Frequency: 1")
         self.sampling_label_end_2 = QLabel()
         self.sampling_slider_actual = QSlider(Qt.Orientation.Horizontal)
-        self.sampling_slider_actual.setRange(1, 400)
+        if self.f_max is None:
+            self.sampling_slider_actual.setRange(1, 400)
+        else:
+            self.sampling_slider_actual.setRange(1, int(8 * self.f_max / 1.05))
+
         self.sampling_slider_actual.setValue(1)
         self.sampling_slider_actual.setEnabled(False)
         self.sampling_slider_actual.setTickInterval(1)
@@ -350,7 +354,6 @@ class SignalMixerApp(QWidget):
                 "phases":[0, 0]
             }
         }
-        
 
         for signal in defult_signals.values():
             self.add_default_signal(signal["frequencies"], signal["amplitudes"], signal["phases"])
@@ -412,7 +415,7 @@ class SignalMixerApp(QWidget):
             if self.f_max is None:
                 self.sampling_slider_actual.setRange(1, 400)
             else:
-                self.sampling_slider_actual.setRange(1, int(8 * self.f_max))
+                self.sampling_slider_actual.setRange(1, int(8 * self.f_max / 1.05))
 
             self.sampling_slider_actual.setEnabled(True)
             self.sampling_slider.setEnabled(False)
@@ -438,8 +441,8 @@ class SignalMixerApp(QWidget):
             if self.f_max is None:
                 self.sampling_slider_actual.setRange(1, 400)
             else:
-                self.sampling_slider_actual.setRange(1, int(8 * self.f_max))
-            factor = self.sampling_slider_actual.value() 
+                self.sampling_slider_actual.setRange(1, int(8 * self.f_max / 1.05))
+            factor = self.sampling_slider_actual.value()
             self.sampling_label_end_2.setText(f"{self.sampling_slider_actual.value()}")
             sampling_interval = 1 / factor
             print("2", sampling_interval)
@@ -448,7 +451,7 @@ class SignalMixerApp(QWidget):
         sampling_amplitudes = np.interp(
             sampling_times, self.current_signal_t, self.current_signal_data
         )
-
+        print("fmax", self.f_max)
         return sampling_amplitudes, sampling_times
 
     def reconstruct_signal(self):
@@ -492,8 +495,7 @@ class SignalMixerApp(QWidget):
             difference_signal = self.signal - reconstructed_signal
         else:
             difference_signal = self.current_signal_data - reconstructed_signal
-        # print("error: ")
-        # print(sum(difference_signal) / len(difference_signal))
+
         self.difference_plot_widget.plot(
             self.current_signal_t, difference_signal, pen="g", name="Difference Signal"
         )
@@ -501,9 +503,12 @@ class SignalMixerApp(QWidget):
             self.updated_fs = self.sampling_slider.value() * self.f_max
             print(f"Updated fs: {self.updated_fs:.2f}")
         elif self.radio2.isChecked():
-            self.updated_fs = round(self.sampling_slider_actual.value() , 2)
+            if self.f_max is None:
+                self.sampling_slider_actual.setRange(1, 400)
+            else:
+                self.sampling_slider_actual.setRange(1, int(8 * self.f_max / 1.05))
 
-        print(f"Updated fs: {self.updated_fs:.2f}")
+            self.updated_fs = (self.sampling_slider_actual.value())
 
         N = len(reconstructed_signal)
         fft_values = np.fft.fft(reconstructed_signal)
@@ -636,7 +641,7 @@ class SignalMixerApp(QWidget):
                                 mixed_signal_description
                             ]
                         ]
-                        self.f_max = max(component_frequencies) * 1.1
+                        self.f_max = max(component_frequencies)*1.05
                     else:
                         fft_result = np.fft.fft(mixed_signal)
                         freqs = np.fft.fftfreq(len(mixed_signal), 1 / self.fs)
@@ -666,14 +671,10 @@ class SignalMixerApp(QWidget):
         # duration = 1
         mixed_signal = np.zeros(int(self.fs))
         components = []
-        self.duration = 20
+        self.duration = 10
         # tracking of max frequency
         max_frequency = 0
         for frequency, amplitude, phase in self.signals:
-            # if frequency < 5:
-            #     self.duration = 50
-            # else:
-            #     self.duration = 10
             wave = self.generate_wave(frequency, amplitude, phase, self.duration)
             mixed_signal += wave
             components.append(
@@ -684,6 +685,8 @@ class SignalMixerApp(QWidget):
         mixed_signal_description = f"Signal{len(self.result_list) + 1}"
         self.result_signals[mixed_signal_description] = mixed_signal
         self.mixed_signal_components[mixed_signal_description] = components
+
+        # final result of max frequency
         self.f_max = max_frequency
         list_item_widget = SignalListItemWidget(mixed_signal_description)
         list_item_widget.delete_signal.connect(
@@ -847,34 +850,18 @@ class SignalMixerApp(QWidget):
                 mixed_signal = self.result_signals.get(mixed_signal_description, None)
 
                 if mixed_signal is not None:
-                    signal = mixed_signal
+                    self.signal = mixed_signal
                     signal_description = mixed_signal_description
 
-                    if snr_value > 0:  # Avoid divide by zero
-                        # Compute signal and noise power
-                        signal_power = np.mean(np.square(signal))
-                        noise_power = signal_power / (10 ** (snr_value / 10))*10
-                        
-                        # Generate noise
-                        noise = np.sqrt(noise_power) * np.random.normal(size=len(signal))
-                        noisy_signal = signal + noise
-                    else:
-                        noisy_signal = signal  # No noise if SNR is 0
-
-                    # Update the noisy signals and plot
-                    self.noisy_signals[signal_description] = noisy_signal
-                    self.plot_waveform_with_markers(noisy_signal, signal_description)
-
-                # fft_result = np.fft.fft(noisy_signal)
-                # freqs = np.fft.fftfreq(len(noisy_signal), 1 / self.fs)
-                # magnitude = np.abs(fft_result)
-                #
-                # positive_freqs = freqs[freqs >= 0]
-                # positive_magnitude = magnitude[freqs >= 0]
-                # max_freq_idx = np.argmax(positive_magnitude)
-                # self.f_max = positive_freqs[max_freq_idx]
-                # print("fmax of noisy signal =", self.f_max)
-
+                if snr_value > 0:
+                    signal_power = np.mean(np.square(self.signal))
+                    noise_power = signal_power / (10 ** (snr_value / 10)) * 10
+                    noise = np.sqrt(noise_power) * np.random.normal(size=len(self.signal))
+                    noisy_signal = self.signal + noise
+                else:
+                    noisy_signal = self.signal
+                self.noisy_signals[signal_description] = noisy_signal
+                self.plot_waveform_with_markers(noisy_signal, signal_description)
     def update_snr_value(self, value):
         self.snr_value.setText("SNR Level : " + str(value))
 
