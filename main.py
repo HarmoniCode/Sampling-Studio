@@ -79,7 +79,7 @@ class SignalMixerApp(QWidget):
         self.current_displayed_signal = None
         self.mixed_signal_components = {}
         self.noisy_signals = {}
-        self.fs = 44100
+        self.fs = 10000
         self.updated_fs = 44100  # to be updated, and used in freq graph
         self.f_max = None
         self.current_mode = "dark"
