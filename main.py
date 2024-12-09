@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QRadioButton,
 )
 from PyQt6 import QtCore
+import matplotlib.pyplot as plt
 
 
 class SignalListItemWidget(QFrame):
@@ -84,6 +85,7 @@ class SignalMixerApp(QWidget):
         self.f_max = None
         self.current_mode = "dark"
         self.duration = 1
+        self.error_values  = []
 
         self.initUI()
 
@@ -160,6 +162,12 @@ class SignalMixerApp(QWidget):
         self.mode_button.setFixedWidth(50)
         self.mode_button.clicked.connect(self.switch_mode)
 
+
+        self.error_plot_button = QPushButton("Error Plot")
+        self.error_plot_button.clicked.connect(self.display_error_plot)
+
+
+
         add_mix_control_layout.addWidget(add_button)
         add_mix_control_layout.addWidget(self.mix_button)
 
@@ -172,6 +180,8 @@ class SignalMixerApp(QWidget):
                 QtWidgets.QSizePolicy.Policy.Expanding,
             )
         )
+
+        upload_layout.addWidget(self.error_plot_button)
         upload_layout.addWidget(self.mode_button)
 
         mixer_layout.addLayout(upload_layout)
@@ -361,6 +371,29 @@ class SignalMixerApp(QWidget):
         self.setLayout(layout)
         self.switch_mode()
 
+    def display_error_plot(self):
+        if not self.error_values:
+            print("No error values to plot!")
+            return
+
+        
+        sampling_freqs, errors = zip(*self.error_values)
+        sampling_freqs = np.array(sampling_freqs)
+
+        window_size = 5 
+        avg_errors = np.convolve(errors, np.ones(window_size) / window_size, mode="valid")
+        avg_sampling_freqs = sampling_freqs[:len(avg_errors)]
+
+        plt.figure(figsize=(8, 5))
+        plt.plot(sampling_freqs, errors, marker="o", linestyle="-", color="b", label="Error Metric")
+        plt.plot(avg_sampling_freqs, avg_errors, linestyle="--", color="r", label="Moving Average (Trend)")
+        plt.xlabel("Sampling Frequency (Hz)")
+        plt.ylabel("Error Metric (Absolute Mean Difference)")
+        plt.title("Error Metric vs. Sampling Frequency")
+        plt.grid(True)
+        plt.legend()
+        plt.show()
+
     def add_default_signal(self, frequencies, amplitudes, phases):
         '''
         Add a default signal to the signal list and plot the waveform.
@@ -407,6 +440,9 @@ class SignalMixerApp(QWidget):
             self.current_mode = "light"
 
     def activate_slider(self):
+
+        self.error_values = []
+        
         if self.radio1.isChecked():
             self.sampling_slider.setEnabled(True)
             self.sampling_slider_actual.setEnabled(False)
@@ -495,6 +531,13 @@ class SignalMixerApp(QWidget):
             difference_signal = self.signal - reconstructed_signal
         else:
             difference_signal = self.current_signal_data - reconstructed_signal
+
+        error_metric = np.mean(np.abs(difference_signal))  # Absolute mean difference
+        if hasattr(self, "updated_fs"):
+            self.error_values.append((self.updated_fs, error_metric))
+            print(f"Sampling Frequency: {self.updated_fs:.2f} Hz, Error Metric: {error_metric:.6f}")
+            
+
 
         self.difference_plot_widget.plot(
             self.current_signal_t, difference_signal, pen="g", name="Difference Signal"
