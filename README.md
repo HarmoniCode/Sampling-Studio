@@ -42,6 +42,12 @@
    - Select from a variety of reconstruction methods using a dropdown menu, each with unique strengths and limitations.
    - Ideal for comparing Whittaker–Shannon interpolation with other approaches.
 
+
+
+https://github.com/user-attachments/assets/94cf339d-e7fa-4b25-a17d-e198be553449
+
+
+
 ## Signal Processing
 The **Sampling-Theory Studio** relies on signal processing techniques to demonstrate key concepts:
 
